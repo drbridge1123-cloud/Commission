@@ -79,13 +79,14 @@ if ($method === 'POST') {
         jsonResponse(['error' => 'Invalid data'], 400);
     }
 
-    // Validate required fields
+    // Validate required fields (only name + case# required for initial creation)
     $caseNumber = sanitizeString($data['case_number'] ?? '', 50);
     $clientName = sanitizeString($data['client_name'] ?? '', 200);
-    $month = sanitizeString($data['month'] ?? '', 20);
+    $month = sanitizeString($data['month'] ?? 'TBD', 20);
+    $intakeDate = sanitizeString($data['intake_date'] ?? date('Y-m-d'), 20);
 
-    if (empty($caseNumber) || empty($clientName) || empty($month)) {
-        jsonResponse(['error' => 'Case number, client name, and month are required'], 400);
+    if (empty($caseNumber) || empty($clientName)) {
+        jsonResponse(['error' => 'Case number and client name are required'], 400);
     }
 
     // Validate and sanitize numeric fields
@@ -159,11 +160,11 @@ if ($method === 'POST') {
     $stmt = $pdo->prepare("
         INSERT INTO cases (
             user_id, case_type, case_number, client_name, resolution_type,
-            fee_rate, month, settled, presuit_offer, difference,
+            fee_rate, month, intake_date, settled, presuit_offer, difference,
             legal_fee, discounted_legal_fee, commission, commission_type,
             phase, assigned_date, demand_deadline,
             note, check_received, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -174,6 +175,7 @@ if ($method === 'POST') {
         $resolutionType,
         $feeRate,
         $month,
+        $intakeDate,
         $settled,
         $presuitOffer,
         $difference,

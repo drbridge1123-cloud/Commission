@@ -304,12 +304,15 @@ function calculateAutoStatus($settled, $checkReceived, $currentStatus = null) {
         return 'rejected';
     }
 
-    // Check received = paid
-    if ($checkReceived) {
+    // If already paid (admin approved), stay paid
+    if ($currentStatus === 'paid') {
         return 'paid';
     }
 
-    // Has settlement = unpaid (waiting for commission)
+    // check_received is just a flag - does NOT change status to paid
+    // Only admin approval (api/approve.php) can set status to 'paid'
+
+    // Has settlement = unpaid (waiting for admin approval)
     if ($settled > 0) {
         return 'unpaid';
     }

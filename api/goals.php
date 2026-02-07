@@ -37,15 +37,15 @@ if ($method === 'GET') {
                 COALESCE(g.target_legal_fee, 500000.00) as target_legal_fee,
                 g.notes as goal_notes,
                 COUNT(c.id) as actual_cases,
-                COALESCE(SUM(c.legal_fee), 0) as actual_legal_fee
+                COALESCE(SUM(c.discounted_legal_fee), 0) as actual_legal_fee
             FROM users u
             LEFT JOIN employee_goals g ON u.id = g.user_id AND g.year = ?
-            LEFT JOIN cases c ON u.id = c.user_id AND c.deleted_at IS NULL AND c.status != 'rejected' AND c.month LIKE ?
+            LEFT JOIN cases c ON u.id = c.user_id AND c.deleted_at IS NULL AND YEAR(c.intake_date) = ?
             WHERE u.role = 'employee' AND u.is_active = 1
             GROUP BY u.id
             ORDER BY u.display_name
         ");
-        $stmt->execute([$year, "%. $year"]);
+        $stmt->execute([$year, $year]);
         $employees = $stmt->fetchAll();
 
         // Calculate percentages
@@ -76,12 +76,12 @@ if ($method === 'GET') {
         $stmt = $pdo->prepare("
             SELECT
                 COUNT(*) as actual_cases,
-                COALESCE(SUM(legal_fee), 0) as actual_legal_fee
+                COALESCE(SUM(discounted_legal_fee), 0) as actual_legal_fee
             FROM cases
-            WHERE user_id = ? AND deleted_at IS NULL AND status != 'rejected'
-            AND month LIKE ?
+            WHERE user_id = ? AND deleted_at IS NULL
+            AND YEAR(intake_date) = ?
         ");
-        $stmt->execute([$targetUserId, "%. $year"]);
+        $stmt->execute([$targetUserId, $year]);
         $progress = $stmt->fetch();
 
         $actualCases = (int)$progress['actual_cases'];
@@ -90,16 +90,16 @@ if ($method === 'GET') {
         // Monthly breakdown
         $stmt = $pdo->prepare("
             SELECT
-                month,
+                DATE_FORMAT(intake_date, '%b. %Y') as month,
                 COUNT(*) as cases_count,
-                COALESCE(SUM(legal_fee), 0) as legal_fee_total
+                COALESCE(SUM(discounted_legal_fee), 0) as legal_fee_total
             FROM cases
-            WHERE user_id = ? AND deleted_at IS NULL AND status != 'rejected'
-            AND month LIKE ?
-            GROUP BY month
-            ORDER BY STR_TO_DATE(CONCAT('01 ', REPLACE(month, '.', '')), '%d %b %Y')
+            WHERE user_id = ? AND deleted_at IS NULL
+            AND YEAR(intake_date) = ?
+            GROUP BY DATE_FORMAT(intake_date, '%b. %Y')
+            ORDER BY MIN(intake_date)
         ");
-        $stmt->execute([$targetUserId, "%. $year"]);
+        $stmt->execute([$targetUserId, $year]);
         $monthly = $stmt->fetchAll();
 
         jsonResponse([

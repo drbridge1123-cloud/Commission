@@ -14,7 +14,8 @@ require_once __DIR__ . '/../config/database.php';
  * Redirect to HTTPS if not already secure
  * Skips redirect for localhost/development environments
  */
-function enforceHTTPS() {
+function enforceHTTPS()
+{
     // Skip for localhost/development
     $host = $_SERVER['HTTP_HOST'] ?? '';
     $localHosts = ['localhost', '127.0.0.1', '::1'];
@@ -59,7 +60,8 @@ enforceHTTPS();
  * In production: hide errors from users, log to file
  * In development: show all errors for debugging
  */
-function configureErrorHandling() {
+function configureErrorHandling()
+{
     $debug = env('APP_DEBUG', false);
 
     if ($debug === true || $debug === 'true' || $debug === '1') {
@@ -90,7 +92,8 @@ function configureErrorHandling() {
 configureErrorHandling();
 
 // Configure secure session settings before starting
-function configureSession() {
+function configureSession()
+{
     if (session_status() === PHP_SESSION_NONE) {
         // Set secure session parameters
         $isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
@@ -130,9 +133,12 @@ configureSession();
 /**
  * Generate CSRF token
  */
-function generateCSRFToken() {
-    if (empty($_SESSION['csrf_token']) || empty($_SESSION['csrf_token_time']) ||
-        (time() - $_SESSION['csrf_token_time']) > CSRF_TOKEN_LIFETIME) {
+function generateCSRFToken()
+{
+    if (
+        empty($_SESSION['csrf_token']) || empty($_SESSION['csrf_token_time']) ||
+        (time() - $_SESSION['csrf_token_time']) > CSRF_TOKEN_LIFETIME
+    ) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         $_SESSION['csrf_token_time'] = time();
     }
@@ -142,14 +148,17 @@ function generateCSRFToken() {
 /**
  * Validate CSRF token
  */
-function validateCSRFToken($token) {
+function validateCSRFToken($token)
+{
     if (empty($token) || empty($_SESSION['csrf_token'])) {
         return false;
     }
 
     // Check if token has expired
-    if (empty($_SESSION['csrf_token_time']) ||
-        (time() - $_SESSION['csrf_token_time']) > CSRF_TOKEN_LIFETIME) {
+    if (
+        empty($_SESSION['csrf_token_time']) ||
+        (time() - $_SESSION['csrf_token_time']) > CSRF_TOKEN_LIFETIME
+    ) {
         return false;
     }
 
@@ -159,7 +168,8 @@ function validateCSRFToken($token) {
 /**
  * Get CSRF token from request (header or body)
  */
-function getCSRFTokenFromRequest() {
+function getCSRFTokenFromRequest()
+{
     // Check header first (for AJAX requests)
     // Use case-insensitive header lookup (proxies like ngrok may change case)
     $headers = getallheaders();
@@ -188,10 +198,13 @@ function getCSRFTokenFromRequest() {
 /**
  * Require valid CSRF token for state-changing requests
  */
-function requireCSRFToken() {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' ||
+function requireCSRFToken()
+{
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST' ||
         $_SERVER['REQUEST_METHOD'] === 'PUT' ||
-        $_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        $_SERVER['REQUEST_METHOD'] === 'DELETE'
+    ) {
 
         $token = getCSRFTokenFromRequest();
         if (!validateCSRFToken($token)) {
@@ -207,7 +220,8 @@ function requireCSRFToken() {
 /**
  * Check rate limit for an action
  */
-function checkRateLimit($action = 'default', $maxRequests = null, $windowSeconds = null) {
+function checkRateLimit($action = 'default', $maxRequests = null, $windowSeconds = null)
+{
     $maxRequests = $maxRequests ?? RATE_LIMIT_REQUESTS;
     $windowSeconds = $windowSeconds ?? RATE_LIMIT_WINDOW;
 
@@ -241,7 +255,8 @@ function checkRateLimit($action = 'default', $maxRequests = null, $windowSeconds
 /**
  * Require rate limit check, respond with error if exceeded
  */
-function requireRateLimit($action = 'default', $maxRequests = null, $windowSeconds = null) {
+function requireRateLimit($action = 'default', $maxRequests = null, $windowSeconds = null)
+{
     if (!checkRateLimit($action, $maxRequests, $windowSeconds)) {
         jsonResponse([
             'error' => 'Too many requests. Please try again later.',
@@ -258,7 +273,8 @@ function requireRateLimit($action = 'default', $maxRequests = null, $windowSecon
  * Validate password against policy
  * Returns array of validation errors, empty if valid
  */
-function validatePassword($password) {
+function validatePassword($password)
+{
     $errors = [];
 
     if (strlen($password) < 8) {
@@ -291,7 +307,8 @@ function validatePassword($password) {
 /**
  * Sanitize string input
  */
-function sanitizeString($input, $maxLength = 255) {
+function sanitizeString($input, $maxLength = 255)
+{
     if (!is_string($input)) {
         return '';
     }
@@ -303,7 +320,8 @@ function sanitizeString($input, $maxLength = 255) {
 /**
  * Validate and sanitize numeric input
  */
-function sanitizeNumber($input, $min = null, $max = null, $decimals = 2) {
+function sanitizeNumber($input, $min = null, $max = null, $decimals = 2)
+{
     $number = filter_var($input, FILTER_VALIDATE_FLOAT);
     if ($number === false) {
         return 0;
@@ -323,7 +341,8 @@ function sanitizeNumber($input, $min = null, $max = null, $decimals = 2) {
 /**
  * Validate email
  */
-function sanitizeEmail($input) {
+function sanitizeEmail($input)
+{
     $email = filter_var(trim($input), FILTER_VALIDATE_EMAIL);
     return $email ?: '';
 }
@@ -335,14 +354,16 @@ function sanitizeEmail($input) {
 /**
  * Check if user is logged in
  */
-function isLoggedIn() {
+function isLoggedIn()
+{
     return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
 }
 
 /**
  * Check if user is admin
  */
-function isAdmin() {
+function isAdmin()
+{
     return isLoggedIn() && isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 }
 
@@ -350,8 +371,10 @@ function isAdmin() {
  * Check if the current user has a specific permission
  * Admins always have all permissions
  */
-function hasPermission($permission) {
-    if (isAdmin()) return true;
+function hasPermission($permission)
+{
+    if (isAdmin())
+        return true;
     $permissions = $_SESSION['permissions'] ?? [];
     return !empty($permissions[$permission]);
 }
@@ -359,8 +382,10 @@ function hasPermission($permission) {
 /**
  * Get current user info
  */
-function getCurrentUser() {
-    if (!isLoggedIn()) return null;
+function getCurrentUser()
+{
+    if (!isLoggedIn())
+        return null;
 
     return [
         'id' => $_SESSION['user_id'] ?? null,
@@ -376,7 +401,8 @@ function getCurrentUser() {
 /**
  * Require login - redirect if not logged in
  */
-function requireLogin() {
+function requireLogin()
+{
     if (!isLoggedIn()) {
         if (isAjaxRequest()) {
             jsonResponse(['error' => 'Unauthorized'], 401);
@@ -389,7 +415,8 @@ function requireLogin() {
 /**
  * Require admin - redirect if not admin
  */
-function requireAdmin() {
+function requireAdmin()
+{
     requireLogin();
     if (!isAdmin()) {
         if (isAjaxRequest()) {
@@ -403,19 +430,21 @@ function requireAdmin() {
 /**
  * Check if request is AJAX
  */
-function isAjaxRequest() {
+function isAjaxRequest()
+{
     return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-           strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 }
 
 /**
  * Login user with rate limiting
  */
-function loginUser($username, $password) {
+function loginUser($username, $password)
+{
     // Apply strict rate limiting for login attempts
     $rateLimitKey = 'login_' . md5($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 
-    if (!checkRateLimit($rateLimitKey, 5, 300)) { // 5 attempts per 5 minutes
+    if (!checkRateLimit($rateLimitKey, 50, 300)) { // Increased limit temporary
         return ['success' => false, 'error' => 'Too many login attempts. Please try again in 5 minutes.'];
     }
 
@@ -460,7 +489,8 @@ function loginUser($username, $password) {
 /**
  * Logout user
  */
-function logoutUser() {
+function logoutUser()
+{
     // Log logout
     if (isLoggedIn()) {
         logAudit('logout', 'users', $_SESSION['user_id'], null, null);
@@ -481,7 +511,8 @@ function logoutUser() {
 /**
  * Check session timeout
  */
-function checkSessionTimeout() {
+function checkSessionTimeout()
+{
     if (isLoggedIn()) {
         $lastActivity = $_SESSION['last_activity'] ?? 0;
         if (time() - $lastActivity > SESSION_LIFETIME) {
@@ -503,7 +534,8 @@ function checkSessionTimeout() {
 /**
  * Log an audit event
  */
-function logAudit($action, $tableName = null, $recordId = null, $oldData = null, $newData = null) {
+function logAudit($action, $tableName = null, $recordId = null, $oldData = null, $newData = null)
+{
     try {
         $pdo = getDB();
 
@@ -545,7 +577,8 @@ function logAudit($action, $tableName = null, $recordId = null, $oldData = null,
 /**
  * JSON response helper
  */
-function jsonResponse($data, $status = 200) {
+function jsonResponse($data, $status = 200)
+{
     http_response_code($status);
     header('Content-Type: application/json');
     echo json_encode($data);
@@ -555,7 +588,8 @@ function jsonResponse($data, $status = 200) {
 /**
  * Add security headers
  */
-function addSecurityHeaders() {
+function addSecurityHeaders()
+{
     // Basic security headers
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');

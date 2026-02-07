@@ -214,6 +214,11 @@ if ($method === 'POST') {
         jsonResponse(['error' => 'Case not found or already processed'], 404);
     }
 
+    // Check received is required before approving
+    if ($action === 'approve' && !$case['check_received']) {
+        jsonResponse(['error' => 'Cannot approve: settlement check has not been received yet'], 400);
+    }
+
     $newStatus = ($action === 'approve') ? 'paid' : 'rejected';
 
     $stmt = $pdo->prepare("
@@ -270,25 +275,41 @@ if ($method === 'PUT') {
 
     try {
         $placeholders = str_repeat('?,', count($caseIds) - 1) . '?';
+
+        // For approve: only approve cases where check has been received
+        $checkCondition = ($action === 'approve') ? ' AND check_received = 1' : '';
+
         $stmt = $pdo->prepare("
             UPDATE cases
             SET status = ?, reviewed_at = NOW(), reviewed_by = ?
-            WHERE id IN ($placeholders) AND status = 'unpaid' AND deleted_at IS NULL
+            WHERE id IN ($placeholders) AND status = 'unpaid' AND deleted_at IS NULL{$checkCondition}
         ");
 
         $params = array_merge([$newStatus, $user['id']], $caseIds);
         $stmt->execute($params);
         $updated = $stmt->rowCount();
 
+        // Count how many were skipped due to check not received
+        $skipped = 0;
+        if ($action === 'approve') {
+            $skipped = count($caseIds) - $updated;
+        }
+
         $pdo->commit();
 
         // Audit log
         logAudit('bulk_' . $action, 'cases', null, null, [
             'case_ids' => $caseIds,
-            'count' => $updated
+            'count' => $updated,
+            'skipped' => $skipped
         ]);
 
-        jsonResponse(['success' => true, 'updated' => $updated]);
+        $response = ['success' => true, 'updated' => $updated];
+        if ($skipped > 0) {
+            $response['skipped'] = $skipped;
+            $response['warning'] = "{$skipped} case(s) skipped: settlement check not yet received";
+        }
+        jsonResponse($response);
     } catch (Exception $e) {
         $pdo->rollBack();
         error_log("Bulk approve error: " . $e->getMessage());
