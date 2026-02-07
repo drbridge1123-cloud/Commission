@@ -1,0 +1,497 @@
+/**
+ * Admin Dashboard Specific Styles
+ * Excel-like table and admin-specific components
+ */
+
+/* Force full width with small side padding */
+.header, .header-content, .nav-container, .nav-wrapper, .nav-menu,
+.main-content, .table-container, .table-scroll-wrapper {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.table-toolbar {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+/* Slate color variables (legacy support) */
+:root {
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+}
+
+/* Table Container */
+.table-container {
+    background: white;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Toolbar */
+.table-toolbar {
+    background: white;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--slate-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.toolbar-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.btn-filter {
+    background: var(--slate-100);
+    color: var(--slate-600);
+    border: 1px solid var(--slate-200);
+    padding: 8px 12px;
+}
+.btn-filter:hover {
+    background: var(--slate-200);
+}
+
+.search-box {
+    position: relative;
+}
+.search-box input {
+    padding: 8px 12px 8px 36px;
+    border-radius: 6px;
+    border: 1px solid var(--slate-200);
+    background: var(--slate-100);
+    font-size: 13px;
+    width: 240px;
+    color: var(--slate-700);
+    outline: none;
+    transition: all 0.2s;
+}
+.search-box input:focus {
+    background: white;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.1);
+}
+.search-box .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--slate-400);
+    width: 16px;
+    height: 16px;
+}
+
+/* Table Wrapper */
+.table-scroll-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: #475569 #e2e8f0;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar {
+    height: 14px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-track {
+    background: #e2e8f0;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border-radius: 7px;
+    border: 2px solid #e2e8f0;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* Fixed scrollbar at bottom of viewport */
+.scrollbar-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 18px;
+    background: #e2e8f0;
+    z-index: 1000;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-top: 1px solid #cbd5e1;
+}
+
+.scrollbar-fixed-inner {
+    height: 1px;
+}
+
+.scrollbar-fixed::-webkit-scrollbar {
+    height: 14px;
+}
+
+.scrollbar-fixed::-webkit-scrollbar-track {
+    background: #e2e8f0;
+}
+
+.scrollbar-fixed::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border-radius: 7px;
+    border: 2px solid #e2e8f0;
+}
+
+.scrollbar-fixed::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+table.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+/* Header */
+table.excel-table thead th {
+    background: linear-gradient(180deg, #0f4c81 0%, #0d3f6a 100%);
+    color: white;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 700;
+    padding: 6px 8px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-right: 1px solid rgba(255,255,255,0.15);
+    white-space: nowrap;
+}
+table.excel-table thead th:last-child {
+    border-right: none;
+}
+
+.th-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+.th-content:hover {
+    background-color: rgba(255,255,255,0.1);
+    margin: -8px;
+    padding: 8px;
+}
+.sort-icon {
+    opacity: 0.5;
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+/* Body */
+table.excel-table tbody tr {
+    border-bottom: 1px solid var(--slate-200);
+    transition: background-color 0.1s;
+    cursor: pointer;
+}
+table.excel-table tbody tr:nth-child(even) {
+    background-color: var(--slate-50);
+}
+table.excel-table tbody tr:hover {
+    background-color: #dbeafe !important;
+}
+table.excel-table tbody tr.selected {
+    background-color: #bfdbfe !important;
+}
+
+table.excel-table tbody td {
+    padding: 5px 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--slate-700);
+    border-right: 1px solid var(--slate-100);
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+table.excel-table tbody td:last-child {
+    border-right: none;
+}
+
+/* Month Header Row */
+.month-header-row {
+    background: #f8fafc !important;
+    cursor: default !important;
+}
+.month-header-row:hover {
+    background: #f8fafc !important;
+}
+
+/* Column Widths for Pending Table (17 columns with checkbox) */
+#pendingTable th:nth-child(1),
+#pendingTable td:nth-child(1) { width: 2.5%; padding-left: 4px; }  /* Checkbox */
+#pendingTable th:nth-child(2),
+#pendingTable td:nth-child(2) { width: 4%; }  /* Counsel */
+#pendingTable th:nth-child(3),
+#pendingTable td:nth-child(3) { width: 6.5%; }  /* Status */
+#pendingTable th:nth-child(4),
+#pendingTable td:nth-child(4) { width: 5%; }    /* Month */
+#pendingTable th:nth-child(5),
+#pendingTable td:nth-child(5) { width: 7%; }    /* Case Type */
+#pendingTable th:nth-child(6),
+#pendingTable td:nth-child(6) { width: 5%; }    /* Case # */
+#pendingTable th:nth-child(7),
+#pendingTable td:nth-child(7) { width: 9%; }    /* Client Name */
+#pendingTable th:nth-child(8),
+#pendingTable td:nth-child(8) { width: 8%; }    /* Resolution */
+#pendingTable th:nth-child(9),
+#pendingTable td:nth-child(9) { width: 5%; }    /* Fee Rate */
+#pendingTable th:nth-child(10),
+#pendingTable td:nth-child(10) { width: 6%; }   /* Settled */
+#pendingTable th:nth-child(11),
+#pendingTable td:nth-child(11) { width: 7%; }   /* Pre-suit */
+#pendingTable th:nth-child(12),
+#pendingTable td:nth-child(12) { width: 6.5%; } /* Difference */
+#pendingTable th:nth-child(13),
+#pendingTable td:nth-child(13) { width: 5.5%; }   /* Legal Fee */
+#pendingTable th:nth-child(14),
+#pendingTable td:nth-child(14) { width: 7.5%; }   /* Disc. Legal */
+#pendingTable th:nth-child(15),
+#pendingTable td:nth-child(15) { width: 5.5%; }   /* Commission */
+#pendingTable th:nth-child(16),
+#pendingTable td:nth-child(16) { width: 3%; } /* Check */
+#pendingTable th:nth-child(17),
+#pendingTable td:nth-child(17) { width: 6%; }   /* Actions */
+
+/* Column Widths for All Cases Table (16 columns) */
+#allCasesTable th:nth-child(1),
+#allCasesTable td:nth-child(1) { width: 5%; padding-left: 4px; }   /* Counsel */
+#allCasesTable th:nth-child(2),
+#allCasesTable td:nth-child(2) { width: 7%; }   /* Status */
+#allCasesTable th:nth-child(3),
+#allCasesTable td:nth-child(3) { width: 5.5%; }   /* Month */
+#allCasesTable th:nth-child(4),
+#allCasesTable td:nth-child(4) { width: 7%; }   /* Case Type */
+#allCasesTable th:nth-child(5),
+#allCasesTable td:nth-child(5) { width: 5%; }   /* Case # */
+#allCasesTable th:nth-child(6),
+#allCasesTable td:nth-child(6) { width: 9%; }  /* Client Name */
+#allCasesTable th:nth-child(7),
+#allCasesTable td:nth-child(7) { width: 8%; }   /* Resolution */
+#allCasesTable th:nth-child(8),
+#allCasesTable td:nth-child(8) { width: 5%; }   /* Fee Rate */
+#allCasesTable th:nth-child(9),
+#allCasesTable td:nth-child(9) { width: 6%; }   /* Settled */
+#allCasesTable th:nth-child(10),
+#allCasesTable td:nth-child(10) { width: 7.5%; }  /* Pre-suit Offer */
+#allCasesTable th:nth-child(11),
+#allCasesTable td:nth-child(11) { width: 6.5%; }  /* Difference */
+#allCasesTable th:nth-child(12),
+#allCasesTable td:nth-child(12) { width: 6%; }  /* Legal Fee */
+#allCasesTable th:nth-child(13),
+#allCasesTable td:nth-child(13) { width: 8%; }  /* Disc. Legal Fee */
+#allCasesTable th:nth-child(14),
+#allCasesTable td:nth-child(14) { width: 7%; }  /* Commission */
+#allCasesTable th:nth-child(15),
+#allCasesTable td:nth-child(15) { width: 3.5%; }  /* Check */
+#allCasesTable th:nth-child(16),
+#allCasesTable td:nth-child(16) { width: 4%; }  /* Actions */
+
+/* Specific Columns */
+.col-check {
+    text-align: center;
+    width: 4%;
+    color: var(--slate-400);
+}
+.col-check.checked {
+    color: #10b981;
+    font-weight: bold;
+}
+
+.col-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Inter', sans-serif;
+}
+
+.amount-settled {
+    color: #0f4c81;
+    font-weight: 700;
+}
+
+.amount-commission {
+    color: #047857;
+    font-weight: 700;
+}
+
+/* Status Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    line-height: 1;
+}
+.badge::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.badge-pending {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+.badge-pending::before { background: #92400e; }
+
+.badge-paid {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+.badge-paid::before { background: #065f46; }
+
+.badge-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+.badge-rejected::before { background: #991b1b; }
+
+/* Footer */
+.table-footer {
+    background: var(--slate-50);
+    border-top: 1px solid var(--slate-200);
+    padding: 16px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-info {
+    font-size: 13px;
+    color: var(--slate-500);
+}
+
+.footer-total {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.total-label {
+    font-size: 13px;
+    color: var(--slate-500);
+    font-weight: 500;
+}
+.total-amount {
+    font-size: 18px;
+    font-weight: 700;
+    color: #047857;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================ */
+/* Responsive Styles */
+/* ============================================ */
+
+/* Large screens - full width */
+@media (min-width: 1400px) {
+    .table-container {
+        width: 100%;
+    }
+    table.excel-table tbody td {
+        padding: 6px 5px;
+    }
+}
+
+/* Medium screens */
+@media (max-width: 1200px) {
+    .table-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .toolbar-actions {
+        flex-wrap: wrap;
+    }
+    .search-box input {
+        width: 100%;
+    }
+}
+
+/* Small screens */
+@media (max-width: 768px) {
+    table.excel-table thead th {
+        font-size: 10px;
+        padding: 6px 4px;
+    }
+    table.excel-table tbody td {
+        font-size: 11px;
+        padding: 6px 4px;
+    }
+    .table-footer {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+    .footer-total {
+        flex-direction: column;
+    }
+}
+
+/* Filter dropdown fix */
+.filter-pill select {
+    min-width: 140px !important;
+    padding-right: 24px !important;
+}
+#filterAllMonth {
+    min-width: 140px !important;
+}
+#filterAllStatus {
+    min-width: 120px !important;
+}

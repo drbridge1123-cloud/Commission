@@ -1,0 +1,44 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+tmp/
+
+# Vendor (if using composer)
+vendor/
+
+# Uploaded files (if any)
+uploads/
+
+# Backup files
+*.bak
+*.backup
+*.sql.gz
+backups/
+
+# Claude / AI
+.claude/
+.gemini/
+
+# Misc
+nul
+*.csv
+*.md
+!README.md
