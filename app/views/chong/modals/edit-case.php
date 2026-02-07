@@ -72,6 +72,7 @@
                             <label>Resolution Type</label>
                             <select id="editResolutionType" onchange="calculateEditCommission()">
                                 <option value="">Select...</option>
+                                <option value="TBD">TBD</option>
                                 <optgroup label="33.33% Fee Rate">
                                     <option value="File and Bump">File and Bump</option>
                                     <option value="Post Deposition Settle">Post Deposition Settle</option>

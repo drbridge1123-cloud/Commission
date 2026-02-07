@@ -20,6 +20,7 @@
                         <label>Resolution Type *</label>
                         <select name="resolution_type" required onchange="onResolutionTypeChange()">
                             <option value="">-- Select --</option>
+                            <option value="TBD">TBD</option>
                             <optgroup label="33.33% (Pre-Suit Deducted)">
                                 <option value="File and Bump">File and Bump</option>
                                 <option value="Post Deposition Settle">Post Deposition Settle</option>

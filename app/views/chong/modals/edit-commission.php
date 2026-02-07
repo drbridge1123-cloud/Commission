@@ -17,6 +17,7 @@
                         <label>Resolution Type</label>
                         <select id="editCommResolutionType">
                             <option value="">Select...</option>
+                            <option value="TBD">TBD</option>
                             <option value="File and Bump">File and Bump</option>
                             <option value="Post Deposition Settle">Post Deposition Settle</option>
                             <option value="Mediation">Mediation</option>

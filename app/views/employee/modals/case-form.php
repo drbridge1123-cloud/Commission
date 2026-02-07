@@ -57,6 +57,7 @@
                             <div>
                                 <label style="display: block; font-size: 11px; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px;">Resolution Type</label>
                                 <select id="resolutionType" style="width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #0f172a; background: white; outline: none; cursor: pointer;">
+                                    <option value="TBD">TBD</option>
                                     <option value="No Offer Settle">No Offer Settle</option>
                                     <option value="File and Bump">File and Bump</option>
                                     <option value="Post Deposition Settle">Post Deposition Settle</option>

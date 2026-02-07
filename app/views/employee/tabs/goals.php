@@ -41,11 +41,22 @@
                 </div>
             </div>
 
-            <!-- Monthly Breakdown -->
-            <div class="tbl-container">
-                <div class="tbl-header"><span class="tbl-title">Monthly Breakdown</span></div>
-                <div id="goalMonthlyContent" style="padding: 0;">
-                    <p style="text-align: center; padding: 40px; color: #8b8fa3; font-size: 12px;">Loading...</p>
+            <!-- Breakdown Tables (side by side) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start;">
+                <!-- Intake Breakdown (Left) -->
+                <div class="tbl-container">
+                    <div class="tbl-header"><span class="tbl-title">Intake Breakdown</span></div>
+                    <div id="goalIntakeContent" style="padding: 0;">
+                        <p style="text-align: center; padding: 40px; color: #8b8fa3; font-size: 12px;">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- Paid Fee Breakdown (Right) -->
+                <div class="tbl-container">
+                    <div class="tbl-header"><span class="tbl-title">Paid Fee Breakdown</span></div>
+                    <div id="goalFeeContent" style="padding: 0;">
+                        <p style="text-align: center; padding: 40px; color: #8b8fa3; font-size: 12px;">Loading...</p>
+                    </div>
                 </div>
             </div>
         </div>

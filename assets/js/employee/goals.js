@@ -25,14 +25,18 @@ async function loadMyGoals() {
         renderMyGoals(result, year);
     } catch (err) {
         console.error('Error loading goals:', err);
-        document.getElementById('goalMonthlyContent').innerHTML = '<p style="text-align:center; padding:40px; color:#dc2626; font-size:12px;">Failed to load goals data</p>';
+        document.getElementById('goalIntakeContent').innerHTML = '<p style="text-align:center; padding:40px; color:#dc2626; font-size:12px;">Failed to load goals data</p>';
+        document.getElementById('goalFeeContent').innerHTML = '<p style="text-align:center; padding:40px; color:#dc2626; font-size:12px;">Failed to load goals data</p>';
     }
 }
 
 function renderMyGoals(data, year) {
     const goal = data.goal;
     const progress = data.progress;
-    const monthly = data.monthly || [];
+    const monthlyIntake = data.monthly_intake || [];
+    const monthlyFee = data.monthly_fee || [];
+
+    const formatFee = (v) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     // Cases card
     document.getElementById('goalCasesActual').textContent = progress.actual_cases;
@@ -44,7 +48,6 @@ function renderMyGoals(data, year) {
 
     // Legal fee card
     const feeActual = progress.actual_legal_fee || 0;
-    const formatFee = (v) => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : v >= 1000 ? '$' + (v/1000).toFixed(0) + 'K' : '$' + v.toFixed(0);
     document.getElementById('goalFeeActual').textContent = formatFee(feeActual);
     document.getElementById('goalFeeTarget').textContent = formatFee(goal.target_legal_fee);
     const feePct = Math.min(100, progress.legal_fee_percent || 0);
@@ -79,56 +82,178 @@ function renderMyGoals(data, year) {
         feePaceEl.innerHTML = `<span style="color:#d97706;">Expected: ${formatFee(expectedFee)} by now</span>`;
     }
 
-    // Monthly breakdown table
+    // --- Intake Breakdown Table (by intake_date) ---
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthData = {};
-    monthly.forEach(m => { monthData[m.month] = m; });
+
+    const intakeData = {};
+    monthlyIntake.forEach(m => { intakeData[m.month] = m; });
 
     let cumCases = 0;
-    let cumFee = 0;
-    let tableRows = '';
-
-    months.forEach(m => {
+    let intakeRows = '';
+    months.forEach((m, idx) => {
         const key = m + '. ' + year;
-        const d = monthData[key];
+        const d = intakeData[key];
         const cases = d ? parseInt(d.cases_count) : 0;
-        const fee = d ? parseFloat(d.legal_fee_total) : 0;
         cumCases += cases;
-        cumFee += fee;
-
-        if (cases > 0 || fee > 0) {
-            tableRows += `<tr>
-                <td style="font-size:12px; font-weight:500;">${key}</td>
+        if (cases > 0) {
+            intakeRows += `<tr onclick="toggleMonthDetail(this, ${year}, ${idx + 1}, 'intake')" style="cursor:pointer;" title="Click to expand">
+                <td style="font-size:12px; font-weight:500;"><span class="goal-arrow" style="display:inline-block; width:12px; font-size:10px; transition:transform 0.2s;">&#9654;</span> ${key}</td>
                 <td class="r" style="font-size:12px;">${cases}</td>
-                <td class="r" style="font-size:12px;">${formatFee(fee)}</td>
                 <td class="r" style="font-size:12px; font-weight:600;">${cumCases}</td>
-                <td class="r" style="font-size:12px; font-weight:600;">${formatFee(cumFee)}</td>
             </tr>`;
         }
     });
 
-    if (!tableRows) {
-        document.getElementById('goalMonthlyContent').innerHTML = '<p style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">No data for this year</p>';
+    if (intakeRows) {
+        document.getElementById('goalIntakeContent').innerHTML = `
+            <table class="tbl" style="table-layout: auto;">
+                <thead><tr>
+                    <th>Month</th>
+                    <th class="r">New Cases</th>
+                    <th class="r">Cumulative</th>
+                </tr></thead>
+                <tbody>${intakeRows}</tbody>
+                <tfoot>
+                    <tr class="tbl-foot">
+                        <td style="font-weight:700; font-size:12px;">Total</td>
+                        <td class="r" style="font-weight:700; font-size:12px;">${cumCases}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>`;
+    } else {
+        document.getElementById('goalIntakeContent').innerHTML = '<p style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">No intake data for this year</p>';
+    }
+
+    // --- Paid Fee Breakdown Table (by reviewed_at / paid date) ---
+    const formatExact = (v) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const feeData = {};
+    monthlyFee.forEach(m => { feeData[m.month] = m; });
+
+    let cumFee = 0;
+    let feeRows = '';
+    months.forEach((m, idx) => {
+        const key = m + '. ' + year;
+        const d = feeData[key];
+        const fee = d ? parseFloat(d.legal_fee_total) : 0;
+        const feeCases = d ? parseInt(d.cases_count) : 0;
+        cumFee += fee;
+        if (fee > 0) {
+            feeRows += `<tr onclick="toggleMonthDetail(this, ${year}, ${idx + 1}, 'fee')" style="cursor:pointer;" title="Click to expand">
+                <td style="font-size:12px; font-weight:500;"><span class="goal-arrow" style="display:inline-block; width:12px; font-size:10px; transition:transform 0.2s;">&#9654;</span> ${key}</td>
+                <td class="r" style="font-size:12px;">${feeCases}</td>
+                <td class="r" style="font-size:12px;">${formatExact(fee)}</td>
+                <td class="r" style="font-size:12px; font-weight:600;">${formatExact(cumFee)}</td>
+            </tr>`;
+        }
+    });
+
+    if (feeRows) {
+        document.getElementById('goalFeeContent').innerHTML = `
+            <table class="tbl" style="table-layout: auto;">
+                <thead><tr>
+                    <th>Month</th>
+                    <th class="r">Cases</th>
+                    <th class="r">Disc. Legal Fee</th>
+                    <th class="r">Cumulative</th>
+                </tr></thead>
+                <tbody>${feeRows}</tbody>
+                <tfoot>
+                    <tr class="tbl-foot">
+                        <td style="font-weight:700; font-size:12px;">Total</td>
+                        <td></td>
+                        <td class="r" style="font-weight:700; font-size:12px;">${formatExact(cumFee)}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>`;
+    } else {
+        document.getElementById('goalFeeContent').innerHTML = '<p style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">No paid fee data for this year</p>';
+    }
+}
+
+async function toggleMonthDetail(row, year, month, type) {
+    const arrow = row.querySelector('.goal-arrow');
+    const nextRow = row.nextElementSibling;
+
+    // If detail row already exists, toggle it
+    if (nextRow && nextRow.classList.contains('goal-detail-row')) {
+        nextRow.remove();
+        arrow.style.transform = 'rotate(0deg)';
         return;
     }
 
-    document.getElementById('goalMonthlyContent').innerHTML = `
-        <table class="tbl" style="table-layout: auto;">
-            <thead><tr>
-                <th>Month</th>
-                <th class="r">Cases</th>
-                <th class="r">Legal Fee</th>
-                <th class="r">Cumulative Cases</th>
-                <th class="r">Cumulative Fee</th>
-            </tr></thead>
-            <tbody>${tableRows}</tbody>
-            <tfoot>
-                <tr class="tbl-foot">
-                    <td style="font-weight:700; font-size:12px;">Total</td>
-                    <td class="r" style="font-weight:700; font-size:12px;">${cumCases}</td>
-                    <td class="r" style="font-weight:700; font-size:12px;">${formatFee(cumFee)}</td>
-                    <td></td><td></td>
-                </tr>
-            </tfoot>
-        </table>`;
+    // Create detail row
+    const colSpan = type === 'intake' ? 3 : 4;
+    const detailRow = document.createElement('tr');
+    detailRow.className = 'goal-detail-row';
+    detailRow.innerHTML = `<td colspan="${colSpan}" style="padding:0; background:#f8f9fa;">
+        <div style="padding:8px 12px 8px 24px; font-size:11px; color:#8b8fa3;">Loading...</div>
+    </td>`;
+    row.after(detailRow);
+    arrow.style.transform = 'rotate(90deg)';
+
+    try {
+        const result = await apiCall(`api/goals.php?action=month_cases&year=${year}&month=${month}&type=${type}`);
+        const cases = result.cases || [];
+
+        if (cases.length === 0) {
+            detailRow.innerHTML = `<td colspan="${colSpan}" style="padding:0; background:#f8f9fa;">
+                <div style="padding:8px 12px 8px 24px; font-size:11px; color:#8b8fa3;">No cases found</div>
+            </td>`;
+            return;
+        }
+
+        const formatExact = (v) => '$' + parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        let subRows = '';
+
+        if (type === 'intake') {
+            cases.forEach(c => {
+                const statusColor = c.status === 'paid' ? '#0d9488' : c.status === 'unpaid' ? '#d97706' : '#6b7280';
+                subRows += `<tr>
+                    <td style="font-size:11px; padding:4px 8px;">${c.case_number || '-'}</td>
+                    <td style="font-size:11px; padding:4px 8px;">${c.client_name}</td>
+                    <td style="font-size:11px; padding:4px 8px;">${c.resolution_type || 'TBD'}</td>
+                    <td style="font-size:11px; padding:4px 8px;"><span style="color:${statusColor}; font-weight:500;">${c.status}</span></td>
+                </tr>`;
+            });
+            detailRow.innerHTML = `<td colspan="${colSpan}" style="padding:0; background:#f8f9fa;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead><tr style="background:#e5e7eb;">
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">CASE #</th>
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">CLIENT</th>
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">RESOLUTION</th>
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">STATUS</th>
+                    </tr></thead>
+                    <tbody>${subRows}</tbody>
+                </table>
+            </td>`;
+        } else {
+            cases.forEach(c => {
+                subRows += `<tr>
+                    <td style="font-size:11px; padding:4px 8px;">${c.case_number || '-'}</td>
+                    <td style="font-size:11px; padding:4px 8px;">${c.client_name}</td>
+                    <td style="font-size:11px; padding:4px 8px;">${c.resolution_type || 'TBD'}</td>
+                    <td style="font-size:11px; padding:4px 8px; text-align:right;">${formatExact(c.discounted_legal_fee)}</td>
+                </tr>`;
+            });
+            detailRow.innerHTML = `<td colspan="${colSpan}" style="padding:0; background:#f8f9fa;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead><tr style="background:#e5e7eb;">
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">CASE #</th>
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">CLIENT</th>
+                        <th style="font-size:10px; padding:4px 8px; text-align:left; font-weight:600; color:#6b7280;">RESOLUTION</th>
+                        <th style="font-size:10px; padding:4px 8px; text-align:right; font-weight:600; color:#6b7280;">DISC. LEGAL FEE</th>
+                    </tr></thead>
+                    <tbody>${subRows}</tbody>
+                </table>
+            </td>`;
+        }
+    } catch (err) {
+        console.error('Error loading month cases:', err);
+        detailRow.innerHTML = `<td colspan="${colSpan}" style="padding:0; background:#f8f9fa;">
+            <div style="padding:8px 12px 8px 24px; font-size:11px; color:#dc2626;">Failed to load cases</div>
+        </td>`;
+    }
 }

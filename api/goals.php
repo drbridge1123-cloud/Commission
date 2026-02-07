@@ -60,6 +60,32 @@ if ($method === 'GET') {
 
         jsonResponse(['employees' => $employees, 'year' => $year, 'csrf_token' => generateCSRFToken()]);
 
+    } else if ($action === 'month_cases') {
+        // Fetch individual cases for a specific month
+        $targetUserId = isAdmin() ? intval($_GET['user_id'] ?? $user['id']) : $user['id'];
+        $month = max(1, min(12, intval($_GET['month'] ?? 1)));
+        $type = sanitizeString($_GET['type'] ?? 'intake', 10);
+
+        if ($type === 'intake') {
+            $stmt = $pdo->prepare("
+                SELECT case_number, client_name, resolution_type, status, discounted_legal_fee, intake_date
+                FROM cases
+                WHERE user_id = ? AND deleted_at IS NULL
+                AND YEAR(intake_date) = ? AND MONTH(intake_date) = ?
+                ORDER BY intake_date
+            ");
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT case_number, client_name, resolution_type, status, discounted_legal_fee, reviewed_at
+                FROM cases
+                WHERE user_id = ? AND deleted_at IS NULL AND status = 'paid'
+                AND YEAR(reviewed_at) = ? AND MONTH(reviewed_at) = ?
+                ORDER BY reviewed_at
+            ");
+        }
+        $stmt->execute([$targetUserId, $year, $month]);
+        jsonResponse(['cases' => $stmt->fetchAll()]);
+
     } else {
         // Single employee goals + progress
         $targetUserId = isAdmin() ? intval($_GET['user_id'] ?? $user['id']) : $user['id'];
@@ -72,27 +98,31 @@ if ($method === 'GET') {
         $targetCases = $goal ? (int)$goal['target_cases'] : 50;
         $targetLegalFee = $goal ? (float)$goal['target_legal_fee'] : 500000.00;
 
-        // Get actual progress
+        // Cases goal: count by intake_date year
         $stmt = $pdo->prepare("
-            SELECT
-                COUNT(*) as actual_cases,
-                COALESCE(SUM(discounted_legal_fee), 0) as actual_legal_fee
+            SELECT COUNT(*) as actual_cases
             FROM cases
             WHERE user_id = ? AND deleted_at IS NULL
             AND YEAR(intake_date) = ?
         ");
         $stmt->execute([$targetUserId, $year]);
-        $progress = $stmt->fetch();
+        $actualCases = (int)$stmt->fetch()['actual_cases'];
 
-        $actualCases = (int)$progress['actual_cases'];
-        $actualLegalFee = (float)$progress['actual_legal_fee'];
+        // Legal fee goal: sum disc. fee by reviewed_at year (paid date)
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(discounted_legal_fee), 0) as actual_legal_fee
+            FROM cases
+            WHERE user_id = ? AND deleted_at IS NULL AND status = 'paid'
+            AND YEAR(reviewed_at) = ?
+        ");
+        $stmt->execute([$targetUserId, $year]);
+        $actualLegalFee = (float)$stmt->fetch()['actual_legal_fee'];
 
-        // Monthly breakdown
+        // Intake monthly breakdown (for cases goal)
         $stmt = $pdo->prepare("
             SELECT
                 DATE_FORMAT(intake_date, '%b. %Y') as month,
-                COUNT(*) as cases_count,
-                COALESCE(SUM(discounted_legal_fee), 0) as legal_fee_total
+                COUNT(*) as cases_count
             FROM cases
             WHERE user_id = ? AND deleted_at IS NULL
             AND YEAR(intake_date) = ?
@@ -100,7 +130,22 @@ if ($method === 'GET') {
             ORDER BY MIN(intake_date)
         ");
         $stmt->execute([$targetUserId, $year]);
-        $monthly = $stmt->fetchAll();
+        $monthlyIntake = $stmt->fetchAll();
+
+        // Paid fee monthly breakdown (for legal fee goal)
+        $stmt = $pdo->prepare("
+            SELECT
+                DATE_FORMAT(reviewed_at, '%b. %Y') as month,
+                COUNT(*) as cases_count,
+                COALESCE(SUM(discounted_legal_fee), 0) as legal_fee_total
+            FROM cases
+            WHERE user_id = ? AND deleted_at IS NULL AND status = 'paid'
+            AND YEAR(reviewed_at) = ?
+            GROUP BY DATE_FORMAT(reviewed_at, '%b. %Y')
+            ORDER BY MIN(reviewed_at)
+        ");
+        $stmt->execute([$targetUserId, $year]);
+        $monthlyFee = $stmt->fetchAll();
 
         jsonResponse([
             'goal' => [
@@ -116,7 +161,8 @@ if ($method === 'GET') {
                 'cases_percent' => $targetCases > 0 ? round(($actualCases / $targetCases) * 100, 1) : 0,
                 'legal_fee_percent' => $targetLegalFee > 0 ? round(($actualLegalFee / $targetLegalFee) * 100, 1) : 0
             ],
-            'monthly' => $monthly,
+            'monthly_intake' => $monthlyIntake,
+            'monthly_fee' => $monthlyFee,
             'csrf_token' => generateCSRFToken()
         ]);
     }
