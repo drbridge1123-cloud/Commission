@@ -44,14 +44,14 @@
                     <thead>
                         <tr>
                             <th style="width:0;padding:0;border:none;"></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('case_number')">Case # <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('client_name')">Client Name <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('case_type')">Case Type <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('stage')">Stage <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('assigned_date')">Assigned <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('demand_deadline')">Deadline <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('days_left')">Days Left <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortDemandCases('status')">Status <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortDemandCases('case_number')">Case # <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortDemandCases('client_name')">Client Name <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortDemandCases('case_type')">Case Type <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortDemandCases('stage')">Stage <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortDemandCases('assigned_date')">Assigned <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="date"><span class="th-sort" onclick="sortDemandCases('demand_deadline')">Deadline <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="number"><span class="th-sort" onclick="sortDemandCases('days_left')">Days Left <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortDemandCases('status')">Status <span class="sort-arrow">▼</span></span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>

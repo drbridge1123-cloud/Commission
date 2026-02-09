@@ -49,8 +49,8 @@ if ($method === 'GET') {
             ");
             $stmt->execute();
         }
-    } else if ($user['id'] == 2) {
-        // Chong sees requests assigned to them
+    } else if (isAttorney()) {
+        // Attorney sees requests assigned to them
         $status = sanitizeString($_GET['status'] ?? 'all', 20);
 
         $sql = "
@@ -108,11 +108,24 @@ if ($method === 'POST') {
 
     $stmt = $pdo->prepare("
         INSERT INTO traffic_requests (requested_by, assigned_to, client_name, client_phone, client_email, court, court_date, charge, case_number, note, citation_issued_date, referral_source)
-        VALUES (?, 2, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
+
+    // Determine assigned attorney (default to first active attorney)
+    $assignedTo = intval($data['assigned_to'] ?? 0);
+    if ($assignedTo <= 0) {
+        $stmtAtty = $pdo->prepare("SELECT id FROM users WHERE is_attorney = 1 AND is_active = 1 ORDER BY id LIMIT 1");
+        $stmtAtty->execute();
+        $defaultAtty = $stmtAtty->fetch();
+        $assignedTo = $defaultAtty ? $defaultAtty['id'] : 0;
+    }
+    if ($assignedTo <= 0) {
+        jsonResponse(['error' => 'No attorney available to assign'], 400);
+    }
 
     $stmt->execute([
         $user['id'],
+        $assignedTo,
         sanitizeString($data['client_name'], 200),
         sanitizeString($data['client_phone'] ?? '', 50),
         sanitizeString($data['client_email'] ?? '', 200),
@@ -127,10 +140,10 @@ if ($method === 'POST') {
 
     $requestId = $pdo->lastInsertId();
 
-    // Create notification for Chong
+    // Create notification for assigned attorney
     $stmt = $pdo->prepare("
         INSERT INTO notifications (user_id, type, title, message, data, created_at)
-        VALUES (2, 'traffic_request', 'New Traffic Case Request', ?, ?, NOW())
+        VALUES (?, 'traffic_request', 'New Traffic Case Request', ?, ?, NOW())
     ");
 
     $notificationData = json_encode([
@@ -141,6 +154,7 @@ if ($method === 'POST') {
     ]);
 
     $stmt->execute([
+        $assignedTo,
         "New traffic case request from {$user['display_name']}: {$data['client_name']}",
         $notificationData
     ]);
@@ -156,9 +170,9 @@ if ($method === 'PUT') {
         jsonResponse(['error' => 'Invalid data'], 400);
     }
 
-    // Only Chong can accept/deny
-    if ($user['id'] != 2) {
-        jsonResponse(['error' => 'Only assigned user can respond'], 403);
+    // Only assigned attorney can accept/deny
+    if (!isAttorney()) {
+        jsonResponse(['error' => 'Only assigned attorney can respond'], 403);
     }
 
     // Verify request exists and is assigned to this user

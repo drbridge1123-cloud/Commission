@@ -5,10 +5,19 @@
 async function loadDeadlineRequestsBadge() {
     try {
         const data = await apiCall('api/deadline_requests.php?status=pending');
-        const badge = document.getElementById('deadlineRequestBadge');
         const pendingCount = data.pending_count || 0;
-        badge.textContent = pendingCount;
-        badge.classList.toggle('hidden', pendingCount === 0);
+        // Sidebar badge
+        const badge = document.getElementById('deadlineRequestBadge');
+        if (badge) {
+            badge.textContent = pendingCount;
+            badge.style.display = pendingCount > 0 ? '' : 'none';
+        }
+        // Pill badge
+        const pillCount = document.getElementById('plPillDeadlineCount');
+        if (pillCount) {
+            pillCount.textContent = pendingCount;
+            pillCount.style.display = pendingCount > 0 ? '' : 'none';
+        }
     } catch (err) {
         console.error('Error loading deadline requests badge:', err);
     }
@@ -112,13 +121,13 @@ async function processDeadlineRequest(action) {
         });
 
         if (result.success) {
-            showNotification(`Request ${action}d successfully`, 'success');
+            showToast(`Request ${action}d successfully`, 'success');
             closeModal('deadlineReviewModal');
             loadDeadlineRequests();
         } else {
-            showNotification(result.error || `Failed to ${action} request`, 'error');
+            showToast(result.error || `Failed to ${action} request`, 'error');
         }
     } catch (err) {
-        showNotification('Error processing request', 'error');
+        showToast('Error processing request', 'error');
     }
 }

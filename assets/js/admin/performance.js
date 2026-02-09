@@ -1,20 +1,113 @@
 /**
  * Admin Dashboard - Performance Analytics functions.
+ * Sub-tabs: Attorney | Employee
  */
 
-async function loadPerformanceData() {
-    const employeeId = document.getElementById('perfEmployeeFilter').value;
+let perfCurrentSubTab = 'attorney';
+let perfAttorneyFilterInit = false;
+
+// ============================================
+// Sub-tab Switching
+// ============================================
+
+function switchPerfSubTab(tab) {
+    perfCurrentSubTab = tab;
+
+    // Update button styles
+    const attyBtn = document.getElementById('perfSubTabAttorney');
+    const empBtn = document.getElementById('perfSubTabEmployee');
+    const attyFilter = document.getElementById('perfAttorneyFilter');
+
+    if (tab === 'attorney') {
+        attyBtn.style.background = '#1a1a2e';
+        attyBtn.style.color = '#fff';
+        attyBtn.style.border = '1px solid #1a1a2e';
+        empBtn.style.background = 'transparent';
+        empBtn.style.color = '#3d3f4e';
+        empBtn.style.border = '1px solid #e2e4ea';
+        document.getElementById('perfAttorneyContent').style.display = '';
+        document.getElementById('perfEmployeeContent').style.display = 'none';
+        attyFilter.style.display = 'inline-block';
+        loadAttorneyPerformance();
+    } else {
+        empBtn.style.background = '#1a1a2e';
+        empBtn.style.color = '#fff';
+        empBtn.style.border = '1px solid #1a1a2e';
+        attyBtn.style.background = 'transparent';
+        attyBtn.style.color = '#3d3f4e';
+        attyBtn.style.border = '1px solid #e2e4ea';
+        document.getElementById('perfAttorneyContent').style.display = 'none';
+        document.getElementById('perfEmployeeContent').style.display = '';
+        attyFilter.style.display = 'none';
+        loadEmployeePerformance();
+    }
+}
+
+function loadCurrentPerfSubTab() {
+    if (perfCurrentSubTab === 'attorney') {
+        loadAttorneyPerformance();
+    } else {
+        loadEmployeePerformance();
+    }
+}
+
+// ============================================
+// Attorney Filter Init
+// ============================================
+
+async function initPerfAttorneyFilter() {
+    if (perfAttorneyFilterInit) return;
+    perfAttorneyFilterInit = true;
+    const sel = document.getElementById('perfAttorneyFilter');
+    try {
+        const result = await apiCall('api/users.php');
+        const attorneys = (result.users || []).filter(u => u.is_attorney == 1 && u.is_active == 1);
+        attorneys.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.display_name;
+            sel.appendChild(opt);
+        });
+        if (attorneys.length > 0) {
+            sel.value = attorneys[0].id;
+        }
+    } catch (err) {
+        console.error('Error loading attorneys:', err);
+    }
+}
+
+// ============================================
+// Attorney Performance (formerly loadPerformanceData)
+// ============================================
+
+async function loadAttorneyPerformance() {
+    const attorneyId = document.getElementById('perfAttorneyFilter').value;
     const year = document.getElementById('perfYearFilter').value;
+    if (!attorneyId) return;
 
-    // Show/hide Chong analytics panel
-    const chongSection = document.getElementById('chongAnalyticsSection');
-    chongSection.style.display = (employeeId == 2) ? 'block' : 'none';
+    await loadAttorneyAnalytics(attorneyId, year);
+    await loadPerformanceSummary(attorneyId, year);
+    await loadMonthlyTrend(attorneyId, year);
+}
 
-    if (employeeId == 2) await loadChongAnalytics(year);
-    await loadPerformanceSummary(employeeId, year);
-    await loadMonthlyTrend(employeeId, year);
+// Backward compat: called from init.js on first load
+async function loadPerformanceData() {
+    await initPerfAttorneyFilter();
+    switchPerfSubTab('attorney');
+}
+
+// ============================================
+// Employee Performance
+// ============================================
+
+async function loadEmployeePerformance() {
+    const year = document.getElementById('perfYearFilter').value;
     await loadByEmployee(year);
 }
+
+// ============================================
+// Summary (hero cards)
+// ============================================
 
 async function loadPerformanceSummary(employeeId, year) {
     try {
@@ -43,11 +136,15 @@ async function loadPerformanceSummary(employeeId, year) {
     }
 }
 
-async function loadChongAnalytics(year) {
+// ============================================
+// Attorney Analytics (formerly loadChongAnalytics)
+// ============================================
+
+async function loadAttorneyAnalytics(attorneyId, year) {
     try {
-        const result = await apiCall(`api/performance.php?action=chong&year=${year}`);
-        if (result.chong_analytics) {
-            const c = result.chong_analytics;
+        const result = await apiCall(`api/performance.php?action=attorney&attorney_id=${attorneyId}&year=${year}`);
+        if (result.attorney_analytics) {
+            const c = result.attorney_analytics;
 
             // Phase breakdown
             document.getElementById('perfDemandActive').textContent = c.phase_breakdown.demand_active;
@@ -91,9 +188,13 @@ async function loadChongAnalytics(year) {
             document.getElementById('perfActiveCases').textContent = c.current_status.active_cases;
         }
     } catch (err) {
-        console.error('Error loading Chong analytics:', err);
+        console.error('Error loading attorney analytics:', err);
     }
 }
+
+// ============================================
+// Monthly Trend Chart
+// ============================================
 
 async function loadMonthlyTrend(employeeId, year) {
     try {
@@ -184,46 +285,120 @@ function renderPerfChart(data) {
     });
 }
 
+// ============================================
+// Employee Table (with Goals)
+// ============================================
+
 async function loadByEmployee(year) {
     try {
-        const result = await apiCall(`api/performance.php?action=by_employee&year=${year}`);
-        if (result.by_employee) {
-            renderPerfEmployeeTable(result.by_employee);
-        }
+        const [perfResult, goalsResult] = await Promise.all([
+            apiCall(`api/performance.php?action=by_employee&year=${year}`),
+            apiCall(`api/goals.php?action=summary&year=${year}`)
+        ]);
+        if (goalsResult.csrf_token) csrfToken = goalsResult.csrf_token;
+        renderPerfEmployeeTable(perfResult.by_employee || [], goalsResult.employees || [], year);
     } catch (err) {
         console.error('Error loading by employee:', err);
     }
 }
 
-function renderPerfEmployeeTable(employees) {
+function renderPerfEmployeeTable(employees, goalsEmployees, year) {
     const tbody = document.getElementById('perfEmployeeBody');
-    if (!employees || employees.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; color: #8b8fa3; font-size: 12px;">No data</td></tr>';
+    if ((!employees || employees.length === 0) && (!goalsEmployees || goalsEmployees.length === 0)) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px; color: #8b8fa3; font-size: 12px;">No data</td></tr>';
         return;
     }
 
-    employees.sort((a, b) => parseFloat(b.total_commission) - parseFloat(a.total_commission));
-    const totalCommission = employees.reduce((sum, e) => sum + parseFloat(e.total_commission || 0), 0);
+    // Build goals map by employee ID
+    const goalsMap = {};
+    goalsEmployees.forEach(g => { goalsMap[g.id] = g; });
 
-    tbody.innerHTML = employees.map((e, idx) => {
-        const pct = totalCommission > 0 ? ((parseFloat(e.total_commission) / totalCommission) * 100) : 0;
-        const isTop = idx === 0 && parseFloat(e.total_commission) > 0;
-        const isZero = parseFloat(e.total_commission) === 0;
+    // Build perf map by employee ID
+    const perfMap = {};
+    employees.forEach(e => { perfMap[e.id] = e; });
 
-        return `
-            <tr class="${isTop ? 'top-row' : ''}">
-                <td style="padding: 10px 14px; font-weight: 600; color: #1a1a2e; font-size: 13px;">${escapeHtml(e.display_name)}</td>
-                <td class="r" style="padding: 10px 14px; font-size: 13px;">${e.total_cases}</td>
-                <td class="r" style="padding: 10px 14px; font-size: 13px;">${e.paid_cases}</td>
-                <td class="r" style="padding: 10px 14px; font-weight: 700; ${isZero ? 'color: #c4c7d0;' : 'color: #0d9488;'} font-size: 13px;">${formatCurrency(e.total_commission)}</td>
-                <td class="r" style="padding: 10px 14px; font-size: 13px; ${isZero ? 'color: #c4c7d0;' : ''}">${formatCurrency(e.avg_commission)}</td>
-                <td class="r" style="padding: 10px 14px;">
-                    <div class="spark-bar">
-                        <div class="spark"><div class="spark-fill ${pct === 0 ? 'empty' : ''}" style="width: ${pct}%;"></div></div>
-                        <span class="spark-pct ${pct === 0 ? 'zero' : ''}">${pct.toFixed(1)}%</span>
-                    </div>
-                </td>
-            </tr>
-        `;
+    // Merge: use goals employees as base (they have target info), supplement with perf data
+    const allIds = new Set([...goalsEmployees.map(g => g.id), ...employees.map(e => e.id)]);
+    const merged = Array.from(allIds).map(id => {
+        const g = goalsMap[id] || {};
+        const p = perfMap[id] || {};
+        return {
+            id: id,
+            display_name: g.display_name || p.display_name || '',
+            actual_cases: parseInt(g.actual_cases) || parseInt(p.total_cases) || 0,
+            target_cases: parseInt(g.target_cases) || 50,
+            cases_percent: parseFloat(g.cases_percent) || 0,
+            actual_legal_fee: parseFloat(g.actual_legal_fee) || 0,
+            target_legal_fee: parseFloat(g.target_legal_fee) || 500000,
+            legal_fee_percent: parseFloat(g.legal_fee_percent) || 0,
+            total_commission: parseFloat(p.total_commission) || 0,
+            avg_commission: parseFloat(p.avg_commission) || 0,
+            goal_notes: g.goal_notes || ''
+        };
+    });
+
+    merged.sort((a, b) => b.total_commission - a.total_commission);
+    const expectedPct = getOnPacePercent(year);
+    const fmtFee = (v) => v >= 1000 ? '$' + (v / 1000).toFixed(0) + 'K' : '$' + Math.round(v);
+
+    tbody.innerHTML = merged.map(e => {
+        const casesPct = Math.min(100, e.cases_percent);
+        const feePct = Math.min(100, e.legal_fee_percent);
+        const avgPct = (casesPct + feePct) / 2;
+        const paceColor = getPaceColor(avgPct, expectedPct);
+        const paceLabel = getPaceLabel(avgPct, expectedPct);
+        const isZero = e.total_commission === 0;
+
+        const notesEscaped = (e.goal_notes || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+
+        return `<tr>
+            <td style="padding: 10px 14px; font-weight: 600; color: #1a1a2e; font-size: 12px;">${escapeHtml(e.display_name)}</td>
+            <td class="r" style="padding: 10px 14px; font-size: 12px;">${e.actual_cases}/${e.target_cases}</td>
+            <td style="padding: 10px 14px;">${sparkBar(casesPct)}</td>
+            <td class="r" style="padding: 10px 14px; font-size: 12px;">${fmtFee(e.actual_legal_fee)}/${fmtFee(e.target_legal_fee)}</td>
+            <td style="padding: 10px 14px;">${sparkBar(feePct)}</td>
+            <td class="r" style="padding: 10px 14px; font-weight: 700; ${isZero ? 'color: #c4c7d0;' : 'color: #0d9488;'} font-size: 12px;">${formatCurrency(e.total_commission)}</td>
+            <td class="r" style="padding: 10px 14px; font-size: 12px; ${isZero ? 'color: #c4c7d0;' : ''}">${formatCurrency(e.avg_commission)}</td>
+            <td class="c" style="padding: 10px 14px;"><span style="font-size: 11px; font-weight: 600; color: ${paceColor};">${paceLabel}</span></td>
+            <td class="c" style="padding: 10px 14px;">
+                <button onclick="openPerfGoalModal(${e.id}, '${e.display_name.replace(/'/g, "\\'")}', {target_cases:${e.target_cases}, target_legal_fee:${e.target_legal_fee}, notes:'${notesEscaped}'})" class="act-link" style="padding: 3px 8px; font-size: 10px;">Edit</button>
+            </td>
+        </tr>`;
     }).join('');
+}
+
+// ============================================
+// Goal Editing
+// ============================================
+
+function openPerfGoalModal(userId, displayName, goal) {
+    document.getElementById('perfGoalUserId').value = userId;
+    document.getElementById('perfGoalTitle').textContent = 'Edit Goal - ' + displayName;
+    document.getElementById('perfGoalYear').value = document.getElementById('perfYearFilter').value;
+    document.getElementById('perfGoalCases').value = goal.target_cases || 50;
+    document.getElementById('perfGoalFee').value = goal.target_legal_fee || 500000;
+    document.getElementById('perfGoalNotes').value = goal.notes || '';
+    openModal('perfEditGoalModal');
+}
+
+async function savePerfGoal() {
+    const data = {
+        user_id: parseInt(document.getElementById('perfGoalUserId').value),
+        year: parseInt(document.getElementById('perfGoalYear').value),
+        target_cases: parseInt(document.getElementById('perfGoalCases').value),
+        target_legal_fee: parseFloat(document.getElementById('perfGoalFee').value),
+        notes: document.getElementById('perfGoalNotes').value.trim()
+    };
+
+    try {
+        const result = await apiCall('api/goals.php', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        if (result.csrf_token) csrfToken = result.csrf_token;
+        closeModal('perfEditGoalModal');
+        loadByEmployee(document.getElementById('perfYearFilter').value);
+    } catch (err) {
+        alert('Failed to save goal: ' + (err.message || err));
+    }
 }

@@ -1,0 +1,34 @@
+/* Manager Dashboard specific styles */
+
+/* Fix filter dropdowns: auto-width instead of full-width */
+.filters select.f-select { width: auto !important; flex: 0 0 auto; }
+.filters input.f-search,
+.filters input[type="text"].f-search { width: 150px !important; flex: 0 0 auto; }
+.filters .f-btn,
+.filters .ink-btn { flex: 0 0 auto; }
+
+/* Hero Cards (summary stats) */
+.hero-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.hero-card { background: #fff; border: 1px solid #e2e4ea; border-radius: 10px; padding: 18px 20px; position: relative; font-family: 'Outfit', sans-serif; }
+.hero-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 10px 10px 0 0; }
+.hero-card.accent-dark::before { background: #1a1a2e; }
+.hero-card.accent-teal::before { background: #0d9488; }
+.hero-card.accent-blue::before { background: #3b82f6; }
+.hero-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #8b8fa3; margin-bottom: 6px; }
+.hero-val { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1a1a2e; }
+.hero-val.teal { color: #0d9488; }
+
+@media (max-width: 768px) { .hero-row { grid-template-columns: 1fr; } }
+
+/* Referral table compact cells */
+#referralsTableBody td,
+#adminReferralsBody td {
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
+/* Team goal card panel */
+#teamGoalsContent .panel {
+    border: 1px solid #e2e4ea;
+    border-radius: 10px;
+}

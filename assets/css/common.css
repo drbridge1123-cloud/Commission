@@ -1769,3 +1769,12 @@ input[readonly] {
         padding: 0;
     }
 }
+
+/* ============================================ */
+/* Table Sort Indicators                        */
+/* ============================================ */
+th[data-sort] { cursor: pointer; user-select: none; position: relative; }
+th[data-sort]::after { content: '\2195'; opacity: 0.25; margin-left: 4px; font-size: 10px; }
+th[data-sort].sort-asc::after { content: '\2191'; opacity: 0.8; }
+th[data-sort].sort-desc::after { content: '\2193'; opacity: 0.8; }
+th[data-sort]:hover { opacity: 0.85; }

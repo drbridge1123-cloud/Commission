@@ -31,10 +31,8 @@ let allUsers = [];
 let adminTrafficCases = [];
 let adminTrafficAllCases = [];
 let myTrafficRequests = [];
-let adminTrafficFilter = 'active';
-let adminTrafficSearchTerm = '';
-let adminTrafficSidebarTab = 'all';
 let editingTrafficCaseId = null;
+let tv3PillTab = 'active';
 
 // Messages state
 let currentViewingMessageAdmin = null;
@@ -45,91 +43,42 @@ let allItems = [];
 let pendingDeleteType = null;
 let pendingDeleteId = null;
 
+// All Commissions sub-tab state
+let currentAllCommSubTab = 'pending';
+
+// Analytics sub-tab state
+let currentAnalyticsSubTab = 'overview';
+
+// Pipeline sub-tab state
+let currentPipelineSubTab = 'pipeline';
+
 // Chart instances
 let perfChartInstance = null;
 let trendChartInstance = null;
-let statusChartInstance = null;
 let reportCharts = { monthly: null, counsel: null, caseType: null };
-
-// Goals state
-let goalsYearFilterInit = false;
 
 // Default widths for each tab (Admin page)
 const TAB_DEFAULT_WIDTHS = {
-    'pending': '100',
     'all': '100',
-    'dashboard': '100',
     'report': '100',
     'notifications': '100',
-    'history': '100',
     'traffic': '100',
     'admin-control': '100',
-    'performance': '100',
-    'goals': '100',
-    'deadline-requests': '100',
-    'database': '100'
+    'pipeline': '100',
+    'database': '100',
+    'referrals': '100'
 };
 
 // Page title mapping for sidebar navigation
 const pageTitles = {
-    'pending': 'Pending Review',
-    'deadline-requests': 'Deadline Requests',
-    'all': 'All Cases',
+    'all': 'All Commissions',
     'traffic': 'Traffic Cases',
-    'dashboard': 'Dashboard',
-    'report': 'Reports',
-    'performance': 'Performance Analytics',
-    'goals': 'Employee Goals',
+    'report': 'Analytics',
+    'pipeline': 'Case Tracker',
     'admin-control': 'Admin Control',
-    'history': 'History',
-    'notifications': 'Notifications'
+    'notifications': 'Notifications',
+    'referrals': 'Referrals'
 };
-
-// Helper function for API calls with CSRF token
-async function apiCall(url, options = {}) {
-    const defaultOptions = {
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken
-        }
-    };
-
-    const mergedOptions = {
-        ...defaultOptions,
-        ...options,
-        headers: {
-            ...defaultOptions.headers,
-            ...options.headers
-        }
-    };
-
-    const response = await fetch(url, mergedOptions);
-    const text = await response.text();
-
-    let data;
-    try {
-        data = JSON.parse(text);
-    } catch (e) {
-        console.error('Invalid JSON response:', text.substring(0, 500));
-        throw new Error('Server returned invalid response. Check PHP error logs.');
-    }
-
-    // Update CSRF token if provided in response
-    if (data.csrf_token) {
-        csrfToken = data.csrf_token;
-    }
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Request failed');
-    }
-
-    return data;
-}
-
-// Override shared formatCurrency
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
-}
 
 // Override shared formatDate - admin version takes a Date object and returns relative time
 function formatDate(date) {
@@ -151,62 +100,6 @@ function formatDate(date) {
     } else {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-}
-
-// Width control functions (admin uses 'adminWidth' localStorage key)
-function setWidth(width) {
-    const container = document.getElementById('mainContent');
-    if (container) {
-        container.className = 'page-content w-' + width;
-    }
-
-    // Update active button
-    document.querySelectorAll('.sz-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.getAttribute('data-width') === width) {
-            btn.classList.add('active');
-        }
-    });
-
-    // Save preference
-    localStorage.setItem('adminWidth', width);
-}
-
-function loadWidthPreference() {
-    const savedWidth = localStorage.getItem('adminWidth') || '100';
-    setWidth(savedWidth);
-}
-
-// Modal functions
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('show');
-    }
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('show');
-        modal.classList.add('hidden');
-    }
-}
-
-// Toast notification
-function showNotification(message, type = 'info') {
-    const existing = document.querySelector('.toast-notification');
-    if (existing) existing.remove();
-
-    const toast = document.createElement('div');
-    toast.className = `toast-notification toast-${type}`;
-    toast.innerHTML = `
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">&times;</button>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
 }
 
 // Status badge helper
@@ -293,6 +186,43 @@ function initMonthDropdown() {
     months.forEach(m => {
         select.innerHTML += `<option value="${m}. ${year}">${m}. ${year}</option>`;
     });
+}
+
+// Spark bar progress indicator (used by overview + performance)
+function sparkBar(pct) {
+    const color = pct >= 75 ? '#0d9488' : pct >= 50 ? '#d97706' : '#e2e4ea';
+    return `<div class="spark-bar">
+        <div class="spark" style="width:70px;">
+            <div class="spark-fill" style="width:${pct}%; background:${color};"></div>
+        </div>
+        <span class="spark-pct ${pct === 0 ? 'zero' : ''}">${pct.toFixed(0)}%</span>
+    </div>`;
+}
+
+// Pace calculation helpers (used by overview + performance)
+function getOnPacePercent(year) {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    if (parseInt(year) < currentYear) return 100;
+    if (parseInt(year) > currentYear) return 0;
+    const monthsPassed = now.getMonth() + 1;
+    return (monthsPassed / 12) * 100;
+}
+
+function getPaceColor(actualPct, expectedPct) {
+    if (expectedPct === 0) return '#8b8fa3';
+    const ratio = actualPct / expectedPct;
+    if (ratio >= 0.85) return '#0d9488';
+    if (ratio >= 0.6) return '#d97706';
+    return '#dc2626';
+}
+
+function getPaceLabel(actualPct, expectedPct) {
+    if (expectedPct === 0) return '-';
+    const ratio = actualPct / expectedPct;
+    if (ratio >= 0.85) return 'On Pace';
+    if (ratio >= 0.6) return 'Behind';
+    return 'Far Behind';
 }
 
 function parseMonthForSort(monthStr) {

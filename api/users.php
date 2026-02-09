@@ -24,7 +24,7 @@ if ($method === 'GET') {
     if (isAdmin()) {
         // Admin can see all users with full details
         $stmt = $pdo->query("
-            SELECT id, username, display_name, role, commission_rate, uses_presuit_offer, permissions, is_active, created_at
+            SELECT id, username, display_name, role, is_attorney, is_manager, commission_rate, uses_presuit_offer, permissions, is_active, created_at
             FROM users
             ORDER BY role, display_name
         ");
@@ -32,6 +32,11 @@ if ($method === 'GET') {
         foreach ($users as &$u) {
             $u['permissions'] = json_decode($u['permissions'] ?? '{}', true) ?: [];
         }
+        jsonResponse(['users' => $users, 'current_user_id' => $user['id'], 'csrf_token' => generateCSRFToken()]);
+    } elseif (isManager()) {
+        // Manager can see all active users (for case manager dropdown, etc.)
+        $stmt = $pdo->query("SELECT id, username, display_name, role FROM users WHERE is_active = 1 ORDER BY display_name");
+        $users = $stmt->fetchAll();
         jsonResponse(['users' => $users, 'current_user_id' => $user['id'], 'csrf_token' => generateCSRFToken()]);
     } else {
         // Employee can only see admin users (for sending messages)
@@ -79,12 +84,14 @@ if ($method === 'POST') {
 
         // Create new user
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $isAttorneyVal = !empty($data['is_attorney']) ? 1 : 0;
+        $isManagerVal = !empty($data['is_manager']) ? 1 : 0;
         $defaultPermissions = json_encode(['can_request_traffic' => false]);
         $stmt = $pdo->prepare("
-            INSERT INTO users (username, password, display_name, role, commission_rate, permissions, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
+            INSERT INTO users (username, password, display_name, role, is_attorney, is_manager, commission_rate, permissions, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
         ");
-        $stmt->execute([$username, $hashedPassword, $displayName, $role, $commissionRate, $defaultPermissions]);
+        $stmt->execute([$username, $hashedPassword, $displayName, $role, $isAttorneyVal, $isManagerVal, $commissionRate, $defaultPermissions]);
 
         logAudit('create_user', 'users', $pdo->lastInsertId(), null, [
             'created_by' => $user['display_name'],
@@ -214,6 +221,22 @@ if ($method === 'PUT') {
         $updates[] = "uses_presuit_offer = ?";
         $params[] = $usesPresuitOffer;
         $changes['uses_presuit_offer'] = $usesPresuitOffer;
+    }
+
+    // Update is_attorney
+    if (isset($data['is_attorney'])) {
+        $isAttorneyVal = !empty($data['is_attorney']) ? 1 : 0;
+        $updates[] = "is_attorney = ?";
+        $params[] = $isAttorneyVal;
+        $changes['is_attorney'] = $isAttorneyVal;
+    }
+
+    // Update is_manager
+    if (isset($data['is_manager'])) {
+        $isManagerVal = !empty($data['is_manager']) ? 1 : 0;
+        $updates[] = "is_manager = ?";
+        $params[] = $isManagerVal;
+        $changes['is_manager'] = $isManagerVal;
     }
 
     // Update permissions

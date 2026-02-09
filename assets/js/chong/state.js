@@ -50,8 +50,6 @@ let currentRequestFilter = 'all';
 
 // Traffic cases state
 let trafficCasesData = [];
-let currentSidebarTab = 'all';
-let currentTrafficFilter = null;
 let currentTrafficStatusFilter = 'active';
 
 // Demand state
@@ -66,9 +64,9 @@ const resolutionConfig = {
     'Settlement Conference': { feeRate: 33.33, commRate: 20, deductPresuit: true },
     'Arbitration Award': { feeRate: 40, commRate: 20, deductPresuit: false },
     'Beasley': { feeRate: 40, commRate: 20, deductPresuit: false },
+    'No Offer Settle': { feeRate: 33.33, commRate: 20, deductPresuit: true },
     'Co-Counsel': { feeRate: 0, commRate: 0, variable: true },
-    'Other': { feeRate: 0, commRate: 0, variable: true },
-    'No Offer Settle': { feeRate: 0, commRate: 0, variable: true }
+    'Other': { feeRate: 0, commRate: 0, variable: true }
 };
 
 // Page title mapping
@@ -100,21 +98,6 @@ async function apiCall(url, method = 'GET', data = null) {
         csrfToken = result.csrf_token;
     }
     return result;
-}
-
-// Toast notification
-function showToast(message, type = 'info') {
-    const existing = document.querySelector('.toast-notification');
-    if (existing) existing.remove();
-
-    const toast = document.createElement('div');
-    toast.className = `toast-notification toast-${type}`;
-    toast.innerHTML = `
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">&times;</button>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
 }
 
 // Override shared utils with Chong's original formats
@@ -165,19 +148,3 @@ function getFileIcon(filename) {
     return '📎';
 }
 
-// Modal functions (used across all Chong JS files)
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('show');
-    }
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('show');
-        modal.classList.add('hidden');
-    }
-}

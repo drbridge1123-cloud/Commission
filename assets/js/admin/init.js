@@ -5,11 +5,10 @@
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Set initial width for pending tab (first tab)
-    setWidth(TAB_DEFAULT_WIDTHS['pending'] || '75');
+    // Set initial width for all commissions tab (first tab)
+    setWidth(TAB_DEFAULT_WIDTHS['all'] || '100');
     initMonthDropdown();
     loadPendingCases();
-    loadStats();
     loadMessages();
     loadDeadlineRequestsBadge();
     initFixedScrollbar();
@@ -36,28 +35,42 @@ async function switchTab(tab) {
     setWidth(defaultWidth);
 
     // Load data for tab
-    if (tab === 'all') loadAllCases();
-    if (tab === 'dashboard') loadStats();
+    if (tab === 'all') {
+        loadPendingCases();
+        if (currentAllCommSubTab === 'all') loadAllCases();
+        if (currentAllCommSubTab === 'history') loadHistory();
+    }
     if (tab === 'report') {
-        await loadAllCases();
-        generateComprehensiveReport();
+        if (currentAnalyticsSubTab === 'overview') {
+            initOverviewYearFilter();
+            loadOverviewData();
+        } else if (currentAnalyticsSubTab === 'performance') {
+            loadPerformanceData();
+        } else {
+            await loadAllCases();
+            generateComprehensiveReport();
+        }
     }
     if (tab === 'notifications') loadMessages();
-    if (tab === 'history') loadHistory();
     if (tab === 'admin-control') loadUsers();
     if (tab === 'traffic') {
         loadAdminTrafficCases();
         loadMyTrafficRequests();
     }
-    if (tab === 'deadline-requests') {
-        loadDeadlineRequests();
+    if (tab === 'pipeline') {
+        if (currentPipelineSubTab === 'pipeline') {
+            initPipelineAttorneyFilter().then(() => {
+                initPipelineYearFilter();
+                loadPipelineData();
+            });
+        } else {
+            loadDeadlineRequests();
+        }
     }
-    if (tab === 'performance') {
-        loadPerformanceData();
-    }
-    if (tab === 'goals') {
-        initGoalsYearFilter();
-        loadGoalsData();
+    if (tab === 'referrals') {
+        initAdminRefFilters();
+        loadAdminReferrals();
+        loadAdminRefSummary();
     }
     if (tab === 'database') {
         const frame = document.getElementById('databaseFrame');
@@ -65,6 +78,51 @@ async function switchTab(tab) {
             frame.src = 'check_db.php';
         }
     }
+}
+
+// All Commissions sub-tab switching (Pending / All / History)
+function switchAllCommSubTab(subTab) {
+    currentAllCommSubTab = subTab;
+    ['pending', 'all', 'history'].forEach(t => {
+        const panel = document.getElementById('acSub-' + t);
+        if (panel) panel.style.display = t === subTab ? '' : 'none';
+        const pill = document.getElementById('acPill-' + t);
+        if (pill) pill.classList.toggle('active', t === subTab);
+    });
+    if (subTab === 'all') loadAllCases();
+    if (subTab === 'history') loadHistory();
+}
+
+// Analytics sub-tab switching (Command Center / Performance / Reports)
+function switchAnalyticsSubTab(subTab) {
+    currentAnalyticsSubTab = subTab;
+    ['overview', 'performance', 'report'].forEach(t => {
+        const panel = document.getElementById('anSub-' + t);
+        if (panel) panel.style.display = t === subTab ? '' : 'none';
+        const pill = document.getElementById('anPill-' + t);
+        if (pill) pill.classList.toggle('active', t === subTab);
+    });
+    if (subTab === 'overview') { initOverviewYearFilter(); loadOverviewData(); }
+    if (subTab === 'performance') loadPerformanceData();
+    if (subTab === 'report') { loadAllCases().then(() => generateComprehensiveReport()); }
+}
+
+// Pipeline sub-tab switching (Pipeline / Deadline Requests)
+function switchPipelineSubTab(subTab) {
+    currentPipelineSubTab = subTab;
+    ['pipeline', 'deadline'].forEach(t => {
+        const panel = document.getElementById('plSub-' + t);
+        if (panel) panel.style.display = t === subTab ? '' : 'none';
+        const pill = document.getElementById('plPill-' + t);
+        if (pill) pill.classList.toggle('active', t === subTab);
+    });
+    if (subTab === 'pipeline') {
+        initPipelineAttorneyFilter().then(() => {
+            initPipelineYearFilter();
+            loadPipelineData();
+        });
+    }
+    if (subTab === 'deadline') loadDeadlineRequests();
 }
 
 // Sidebar navigation click handlers

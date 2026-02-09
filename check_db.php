@@ -115,6 +115,220 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
+        // CSV Export — employee cases
+        if ($action === 'csv_export') {
+            $exportUserId = intval($_POST['export_user_id'] ?? 0);
+            if ($exportUserId > 0) {
+                try {
+                    // Get employee name
+                    $stmt = $pdo->prepare("SELECT display_name FROM users WHERE id = ?");
+                    $stmt->execute([$exportUserId]);
+                    $empName = $stmt->fetchColumn() ?: 'unknown';
+                    $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $empName);
+
+                    // Export fields
+                    $csvColumns = ['case_number','client_name','case_type','resolution_type','fee_rate','month','intake_date','settled','presuit_offer','difference','legal_fee','discounted_legal_fee','commission','commission_type','note','check_received','status','phase','assigned_date','demand_deadline','demand_settled_date','litigation_start_date','litigation_settled_date'];
+
+                    $stmt = $pdo->prepare("SELECT " . implode(',', $csvColumns) . " FROM cases WHERE user_id = ? AND deleted_at IS NULL ORDER BY submitted_at DESC");
+                    $stmt->execute([$exportUserId]);
+                    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    logAudit('csv_export', 'cases', null, null, ['user_id' => $exportUserId, 'rows' => count($rows)]);
+
+                    $filename = $safeName . '_cases_' . date('Y-m-d') . '.csv';
+                    header('Content-Type: text/csv; charset=utf-8');
+                    header('Content-Disposition: attachment; filename="' . $filename . '"');
+                    $out = fopen('php://output', 'w');
+                    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+                    fputcsv($out, $csvColumns);
+                    foreach ($rows as $row) {
+                        fputcsv($out, $row);
+                    }
+                    fclose($out);
+                    exit;
+                } catch (Exception $e) {
+                    $message = 'Export failed: ' . $e->getMessage();
+                    $messageType = 'error';
+                }
+            } else {
+                $message = 'Please select an employee.';
+                $messageType = 'error';
+            }
+        }
+
+        // CSV Import — employee cases
+        if ($action === 'csv_import' && isset($_FILES['csv_file'])) {
+            $importUserId = intval($_POST['import_user_id'] ?? 0);
+            $file = $_FILES['csv_file'];
+
+            if ($importUserId <= 0) {
+                $message = 'Please select an employee.';
+                $messageType = 'error';
+            } elseif ($file['error'] !== UPLOAD_ERR_OK) {
+                $message = 'File upload failed.';
+                $messageType = 'error';
+            } elseif ($file['size'] > 10 * 1024 * 1024) {
+                $message = 'File too large. Maximum 10MB.';
+                $messageType = 'error';
+            } else {
+                $allowedColumns = ['case_number','client_name','case_type','resolution_type','fee_rate','month','intake_date','settled','presuit_offer','difference','legal_fee','discounted_legal_fee','commission','commission_type','note','check_received','status','phase','assigned_date','demand_deadline','demand_settled_date','litigation_start_date','litigation_settled_date'];
+
+                $handle = fopen($file['tmp_name'], 'r');
+                // Skip BOM if present
+                $bom = fread($handle, 3);
+                if ($bom !== chr(0xEF).chr(0xBB).chr(0xBF)) {
+                    rewind($handle);
+                }
+
+                $headers = fgetcsv($handle);
+                if (!$headers) {
+                    $message = 'Empty or invalid CSV file.';
+                    $messageType = 'error';
+                } else {
+                    // Clean headers
+                    $headers = array_map(function($h) { return strtolower(trim($h)); }, $headers);
+
+                    // Header aliases — map common CSV names to DB column names
+                    $headerAliases = [
+                        'case #' => 'case_number',
+                        'case no' => 'case_number',
+                        'case no.' => 'case_number',
+                        'client name' => 'client_name',
+                        'client' => 'client_name',
+                        'case type' => 'case_type',
+                        'type' => 'case_type',
+                        'resolution type' => 'resolution_type',
+                        'resolution' => 'resolution_type',
+                        '33.3%/40%' => 'fee_rate',
+                        'fee rate' => 'fee_rate',
+                        'rate' => 'fee_rate',
+                        'intake date' => 'intake_date',
+                        'intake' => 'intake_date',
+                        'pre-suit offer' => 'presuit_offer',
+                        'presuit offer' => 'presuit_offer',
+                        'pre suit offer' => 'presuit_offer',
+                        'legal fees' => 'legal_fee',
+                        'legal fee' => 'legal_fee',
+                        'discounted legal fees' => 'discounted_legal_fee',
+                        'discounted legal fee' => 'discounted_legal_fee',
+                        'disc. fee' => 'discounted_legal_fee',
+                        'disc fee' => 'discounted_legal_fee',
+                        'check' => 'check_received',
+                        'check received' => 'check_received',
+                        'paid' => 'status',
+                        'assigned date' => 'assigned_date',
+                        'demand deadline' => 'demand_deadline',
+                        'demand settled date' => 'demand_settled_date',
+                        'litigation start date' => 'litigation_start_date',
+                        'litigation settled date' => 'litigation_settled_date',
+                        'commission type' => 'commission_type',
+                    ];
+
+                    // Validate headers
+                    $validHeaders = [];
+                    $headerMap = []; // index => column_name
+                    foreach ($headers as $i => $h) {
+                        // Try direct match first, then alias
+                        $mapped = in_array($h, $allowedColumns) ? $h : ($headerAliases[$h] ?? null);
+                        if ($mapped && !in_array($mapped, $validHeaders)) {
+                            $validHeaders[] = $mapped;
+                            $headerMap[$i] = $mapped;
+                        }
+                    }
+
+                    if (empty($validHeaders) || !in_array('case_number', $validHeaders)) {
+                        $message = 'CSV must have a "case_number" column. Found headers: ' . implode(', ', $headers);
+                        $messageType = 'error';
+                    } else {
+                        $inserted = 0;
+                        $updated = 0;
+                        $errors = 0;
+
+                        try {
+                            $pdo->beginTransaction();
+
+                            while (($row = fgetcsv($handle)) !== false) {
+                                if (empty(array_filter($row))) continue; // skip empty rows
+
+                                // Columns that are NOT NULL with default 0
+                                $notNullDefaults = [
+                                    'settled' => '0', 'presuit_offer' => '0', 'difference' => '0',
+                                    'legal_fee' => '0', 'discounted_legal_fee' => '0', 'commission' => '0',
+                                    'fee_rate' => '33.33', 'check_received' => '0',
+                                ];
+
+                                $data = [];
+                                foreach ($headerMap as $i => $col) {
+                                    $val = isset($row[$i]) ? trim($row[$i]) : '';
+                                    if ($val === '' || $val === 'NULL' || $val === 'null') {
+                                        $data[$col] = $notNullDefaults[$col] ?? null;
+                                    } else {
+                                        // Clean currency formatting: remove $, commas
+                                        if (isset($notNullDefaults[$col]) && $col !== 'check_received') {
+                                            $val = str_replace(['$', ',', ' '], '', $val);
+                                        }
+                                        $data[$col] = $val;
+                                    }
+                                }
+
+                                if (empty($data['case_number'])) {
+                                    $errors++;
+                                    continue;
+                                }
+
+                                // Check if case exists for this user
+                                $stmt = $pdo->prepare("SELECT id FROM cases WHERE case_number = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1");
+                                $stmt->execute([$data['case_number'], $importUserId]);
+                                $existingId = $stmt->fetchColumn();
+
+                                if ($existingId) {
+                                    // Update
+                                    $setClauses = [];
+                                    $params = [];
+                                    foreach ($data as $col => $val) {
+                                        if ($col === 'case_number') continue;
+                                        $setClauses[] = "`$col` = ?";
+                                        $params[] = $val;
+                                    }
+                                    if (!empty($setClauses)) {
+                                        $params[] = $existingId;
+                                        $stmt = $pdo->prepare("UPDATE cases SET " . implode(', ', $setClauses) . " WHERE id = ?");
+                                        $stmt->execute($params);
+                                    }
+                                    $updated++;
+                                } else {
+                                    // Insert
+                                    $data['user_id'] = $importUserId;
+                                    $cols = array_keys($data);
+                                    $placeholders = array_fill(0, count($cols), '?');
+                                    $stmt = $pdo->prepare("INSERT INTO cases (`" . implode('`, `', $cols) . "`) VALUES (" . implode(', ', $placeholders) . ")");
+                                    $stmt->execute(array_values($data));
+                                    $inserted++;
+                                }
+                            }
+
+                            $pdo->commit();
+
+                            logAudit('csv_import', 'cases', null, null, [
+                                'user_id' => $importUserId,
+                                'inserted' => $inserted,
+                                'updated' => $updated,
+                                'errors' => $errors
+                            ]);
+
+                            $message = "Import complete! Inserted: $inserted, Updated: $updated" . ($errors > 0 ? ", Skipped: $errors" : '');
+                            $messageType = 'success';
+                        } catch (Exception $e) {
+                            $pdo->rollBack();
+                            $message = 'Import failed: ' . $e->getMessage();
+                            $messageType = 'error';
+                        }
+                    }
+                }
+                fclose($handle);
+            }
+        }
+
         // Optimize tables
         if ($action === 'optimize_tables') {
             try {
@@ -178,6 +392,9 @@ try {
     // Old logs count (30+ days)
     $stmt = $pdo->query("SELECT COUNT(*) as count FROM audit_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
     $dbStatus['old_logs_count'] = $stmt->fetch()['count'];
+
+    // Employees for CSV dropdown
+    $employees = $pdo->query("SELECT id, display_name FROM users WHERE is_active = 1 ORDER BY display_name")->fetchAll();
 
 } catch (Exception $e) {
     $dbStatus['connection'] = false;
@@ -322,6 +539,45 @@ function timeAgo($datetime) {
             </div>
         </div>
 
+        <!-- CSV Export & Import -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">CSV Export (Cases)</div>
+                <div class="card-body">
+                    <p style="font-size: 12px; color: #8b8fa3; margin-bottom: 12px;">Download all commission cases for an employee as CSV.</p>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                        <input type="hidden" name="action" value="csv_export">
+                        <select name="export_user_id" class="form-input" style="margin-bottom: 12px;">
+                            <option value="">Select Employee...</option>
+                            <?php foreach ($employees as $emp): ?>
+                            <option value="<?= $emp['id'] ?>"><?= htmlspecialchars($emp['display_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit" class="btn btn-success">Download CSV</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">CSV Import (Cases)</div>
+                <div class="card-body">
+                    <p style="font-size: 12px; color: #8b8fa3; margin-bottom: 8px;">Upload CSV to import commission cases. Matching case numbers will be updated.</p>
+                    <form method="POST" enctype="multipart/form-data" onsubmit="return validateImport();">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                        <input type="hidden" name="action" value="csv_import">
+                        <select name="import_user_id" class="form-input" style="margin-bottom: 8px;">
+                            <option value="">Select Employee...</option>
+                            <?php foreach ($employees as $emp): ?>
+                            <option value="<?= $emp['id'] ?>"><?= htmlspecialchars($emp['display_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="file" name="csv_file" accept=".csv" id="csvFile" class="form-input" style="margin-bottom: 12px;">
+                        <button type="submit" class="btn btn-primary">Import CSV</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Activity -->
         <div class="card">
             <div class="card-header">Recent Activity</div>
@@ -356,18 +612,6 @@ function timeAgo($datetime) {
             </div>
         </div>
 
-        <!-- Tables Info -->
-        <div class="card">
-            <div class="card-header">Database Tables</div>
-            <div class="card-body">
-                <?php foreach ($dbStatus['tables'] as $table => $count): ?>
-                <div class="list-item">
-                    <span class="list-title"><?= htmlspecialchars($table) ?></span>
-                    <span class="tbl-badge"><?= number_format($count) ?> rows</span>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
 
         <!-- Data Management -->
         <div class="card">
@@ -417,6 +661,14 @@ function timeAgo($datetime) {
                 return false;
             }
             return confirm('Are you sure you want to restore? This will overwrite ALL current data!');
+        }
+        function validateImport() {
+            const fileInput = document.getElementById('csvFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select a CSV file first.');
+                return false;
+            }
+            return confirm('Import CSV? Existing cases with the same case number will be updated.');
         }
     </script>
 </body>

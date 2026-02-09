@@ -25,13 +25,13 @@
                 <span class="f-chip" data-filter="status" data-value="paid" onclick="setCommissionFilter('status', 'paid', this)">Paid</span>
                 <span class="f-chip" data-filter="status" data-value="unpaid" onclick="setCommissionFilter('status', 'unpaid', this)">Unpaid</span>
                 <span style="width: 1px; height: 20px; background: #e2e4ea; margin: 0 8px;"></span>
-                <select id="commissionYearFilter" class="f-select" onchange="loadCommissions()" style="width: 85px;">
+                <select id="commissionYearFilter" class="f-select" onchange="loadCommissions()" style="width: 100px;">
                     <option value="all">All</option>
                     <option value="2026" selected>2026</option>
                     <option value="2025">2025</option>
                     <option value="2024">2024</option>
                 </select>
-                <select id="commissionMonthFilter" class="f-select" onchange="loadCommissions()" style="width: 100px;">
+                <select id="commissionMonthFilter" class="f-select" onchange="loadCommissions()" style="width: 120px;">
                     <option value="all">All Months</option>
                     <option value="Jan">Jan</option>
                     <option value="Feb">Feb</option>
@@ -60,21 +60,22 @@
                     <thead>
                         <tr>
                             <th style="width:0;padding:0;border:none;"></th>
-                            <th><span class="th-sort" onclick="sortCommissions('resolution_type')">Resolution Type <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortCommissions('client_name')">Client Name <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortCommissions('settled')">Settled <span class="sort-arrow">▼</span></span></th>
-                            <th class="r"><span class="th-sort" onclick="sortCommissions('pre_suit_offer')">Pre Suit Offer <span class="sort-arrow">▼</span></span></th>
-                            <th class="r"><span class="th-sort" onclick="sortCommissions('difference')">Difference <span class="sort-arrow">▼</span></span></th>
-                            <th class="r"><span class="th-sort" onclick="sortCommissions('legal_fee')">Legal Fee <span class="sort-arrow">▼</span></span></th>
-                            <th class="r"><span class="th-sort" onclick="sortCommissions('discounted_fee')">Disc. Legal Fee <span class="sort-arrow">▼</span></span></th>
-                            <th class="r"><span class="th-sort" onclick="sortCommissions('commission')">Commission <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortCommissions('month')">Month <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortCommissions('status')">Status <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortCommissions('resolution_type')">Resolution Type <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortCommissions('client_name')">Client Name <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="number"><span class="th-sort" onclick="sortCommissions('settled')">Settled <span class="sort-arrow">▼</span></span></th>
+                            <th class="r" data-sort="number"><span class="th-sort" onclick="sortCommissions('pre_suit_offer')">Pre Suit Offer <span class="sort-arrow">▼</span></span></th>
+                            <th class="r" data-sort="number"><span class="th-sort" onclick="sortCommissions('difference')">Difference <span class="sort-arrow">▼</span></span></th>
+                            <th class="r" data-sort="number"><span class="th-sort" onclick="sortCommissions('legal_fee')">Legal Fee <span class="sort-arrow">▼</span></span></th>
+                            <th class="r" data-sort="number"><span class="th-sort" onclick="sortCommissions('discounted_fee')">Disc. Legal Fee <span class="sort-arrow">▼</span></span></th>
+                            <th class="r" data-sort="number"><span class="th-sort" onclick="sortCommissions('commission')">Commission <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="date"><span class="th-sort" onclick="sortCommissions('month')">Month <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortCommissions('status')">Status <span class="sort-arrow">▼</span></span></th>
+                            <th class="c">Check</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="commissionsTableBody">
-                        <tr><td colspan="12" style="text-align:center; padding: 40px; color: #8b8fa3;">Loading...</td></tr>
+                        <tr><td colspan="13" style="text-align:center; padding: 40px; color: #8b8fa3;">Loading...</td></tr>
                     </tbody>
                 </table>
                 <div class="tbl-foot">

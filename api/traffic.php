@@ -17,8 +17,8 @@ $pdo = getDB();
 $user = getCurrentUser();
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Only Chong (user_id = 2) can access traffic cases
-if ($user['id'] != 2 && !isAdmin()) {
+// Only attorneys or admin can access traffic cases
+if (!isAttorney() && !isAdmin()) {
     jsonResponse(['error' => 'Access denied'], 403);
 }
 

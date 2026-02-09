@@ -88,31 +88,55 @@ if ($method === 'GET') {
         'approved' => $lastMonthStats['approved_count']
     ];
 
+    // Optional year filter for by_counsel and by_month
+    $filterYear = sanitizeString($_GET['year'] ?? '', 10);
+    $yearCondition = '';
+    $yearParam = [];
+    if ($filterYear && preg_match('/^\d{4}$/', $filterYear)) {
+        $yearCondition = " AND c.month LIKE ?";
+        $yearParam = ["%. $filterYear"];
+    }
+
     // By counsel
-    $stmt = $pdo->query("
+    $sql = "
         SELECT u.id as user_id, u.display_name, u.username,
                COUNT(c.id) as case_count,
                COALESCE(SUM(c.commission), 0) as total_commission,
+               COALESCE(SUM(c.settled), 0) as settled_amount,
+               SUM(CASE WHEN c.settled > 0 THEN 1 ELSE 0 END) as settled_count,
                SUM(CASE WHEN c.status = 'unpaid' THEN 1 ELSE 0 END) as pending_count
         FROM users u
-        LEFT JOIN cases c ON u.id = c.user_id AND c.deleted_at IS NULL
+        LEFT JOIN cases c ON u.id = c.user_id AND c.deleted_at IS NULL{$yearCondition}
         WHERE u.role = 'employee' AND u.is_active = 1
         GROUP BY u.id
         ORDER BY total_commission DESC
-    ");
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($yearParam);
     $stats['by_counsel'] = $stmt->fetchAll();
 
-    // By month (last 12 months)
-    $stmt = $pdo->query("
+    // By month
+    $byMonthYearCond = '';
+    $byMonthParams = [];
+    if ($filterYear && preg_match('/^\d{4}$/', $filterYear)) {
+        $byMonthYearCond = " AND month LIKE ?";
+        $byMonthParams = ["%. $filterYear"];
+    }
+    $sql = "
         SELECT month as month_name,
                COUNT(*) as case_count,
-               COALESCE(SUM(commission), 0) as total_commission
+               COALESCE(SUM(commission), 0) as total_commission,
+               COALESCE(SUM(settled), 0) as settled_amount,
+               SUM(CASE WHEN settled > 0 THEN 1 ELSE 0 END) as settled_count,
+               COALESCE(SUM(discounted_legal_fee), 0) as total_disc_fee
         FROM cases
-        WHERE deleted_at IS NULL AND month IS NOT NULL
+        WHERE deleted_at IS NULL AND month IS NOT NULL{$byMonthYearCond}
         GROUP BY month
         ORDER BY STR_TO_DATE(CONCAT('01 ', REPLACE(month, '.', '')), '%d %b %Y') DESC
         LIMIT 12
-    ");
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($byMonthParams);
     $stats['by_month'] = $stmt->fetchAll();
 
     // Cases by status

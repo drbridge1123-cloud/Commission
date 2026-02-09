@@ -116,13 +116,13 @@ if ($method === 'POST') {
         $discountedLegalFee = $financials['discounted_legal_fee'];
     }
 
-    // Chong (user_id = 2) uses special commission rules
+    // Attorneys use special commission rules
     $commissionType = null;
     $phase = sanitizeString($data['phase'] ?? 'demand', 20);
     $resolutionType = sanitizeString($data['resolution_type'] ?? '', 100);
 
-    if ($user['id'] == 2) {
-        // Use Chong-specific commission calculation
+    if ($user['is_attorney']) {
+        // Use attorney-specific commission calculation
         $manualCommissionRate = sanitizeNumber($data['manual_commission_rate'] ?? 0, 0, 100);
         $manualFeeRate = sanitizeNumber($data['manual_fee_rate'] ?? 0, 0, 100);
 
@@ -145,10 +145,10 @@ if ($method === 'POST') {
         $commission = calculateCommission($discountedLegalFee, $user['commission_rate']);
     }
 
-    // Chong-specific fields
+    // Attorney-specific fields
     $assignedDate = null;
     $demandDeadline = null;
-    if ($user['id'] == 2 && !empty($data['assigned_date'])) {
+    if ($user['is_attorney'] && !empty($data['assigned_date'])) {
         $assignedDate = sanitizeString($data['assigned_date'], 20);
         $demandDeadline = calculateDemandDeadline($assignedDate);
     }
@@ -234,14 +234,50 @@ if ($method === 'PUT') {
         'commission' => $case['commission']
     ];
 
-    // Recalculate commission
+    // Detect partial update (only check_received or status change)
+    $dataKeys = array_diff(array_keys($data), ['id', 'csrf_token']);
+    $isPartialUpdate = count($dataKeys) <= 2 && (
+        (count($dataKeys) === 1 && (in_array('check_received', $dataKeys) || in_array('status', $dataKeys))) ||
+        (count($dataKeys) === 2 && in_array('check_received', $dataKeys) && in_array('status', $dataKeys))
+    );
+
+    if ($isPartialUpdate) {
+        // Simple field update - no recalculation
+        $updates = [];
+        $params = [];
+
+        if (isset($data['check_received'])) {
+            $updates[] = 'check_received = ?';
+            $params[] = !empty($data['check_received']) ? 1 : 0;
+        }
+        if (isset($data['status'])) {
+            $newStatus = sanitizeString($data['status'], 20);
+            $updates[] = 'status = ?';
+            $params[] = $newStatus;
+            $updates[] = 'reviewed_at = NOW()';
+            $updates[] = 'reviewed_by = ?';
+            $params[] = $user['id'];
+        }
+
+        if (!empty($updates)) {
+            $params[] = $caseId;
+            $stmt = $pdo->prepare("UPDATE cases SET " . implode(', ', $updates) . " WHERE id = ?");
+            $stmt->execute($params);
+
+            logAudit('update', 'cases', $caseId, $oldData, array_intersect_key($data, array_flip($dataKeys)));
+        }
+
+        jsonResponse(['success' => true]);
+    }
+
+    // Full update - recalculate commission
     $settled = sanitizeNumber($data['settled'] ?? $case['settled'], 0, 999999999.99);
     $presuitOffer = sanitizeNumber($data['presuit_offer'] ?? $case['presuit_offer'], 0, 999999999.99);
     $feeRate = sanitizeNumber($data['fee_rate'] ?? $case['fee_rate'], 0, 100);
-    $discountedLegalFee = sanitizeNumber($data['discounted_legal_fee'] ?? 0, 0, 999999999.99);
+    $discountedLegalFee = sanitizeNumber($data['discounted_legal_fee'] ?? $case['discounted_legal_fee'], 0, 999999999.99);
 
     // Get user's commission settings
-    $stmtUser = $pdo->prepare("SELECT commission_rate, uses_presuit_offer FROM users WHERE id = ?");
+    $stmtUser = $pdo->prepare("SELECT commission_rate, uses_presuit_offer, is_attorney FROM users WHERE id = ?");
     $stmtUser->execute([$case['user_id']]);
     $caseOwner = $stmtUser->fetch();
 
@@ -261,13 +297,13 @@ if ($method === 'PUT') {
         $discountedLegalFee = $financials['discounted_legal_fee'];
     }
 
-    // Chong (user_id = 2) uses special commission rules
+    // Attorneys use special commission rules
     $commissionType = $case['commission_type'] ?? null;
     $phase = sanitizeString($data['phase'] ?? $case['phase'] ?? 'demand', 20);
     $resolutionType = sanitizeString($data['resolution_type'] ?? $case['resolution_type'], 100);
 
-    if ($case['user_id'] == 2) {
-        // Use Chong-specific commission calculation
+    if ($caseOwner['is_attorney']) {
+        // Use attorney-specific commission calculation
         $manualCommissionRate = sanitizeNumber($data['manual_commission_rate'] ?? 0, 0, 100);
         $manualFeeRate = sanitizeNumber($data['manual_fee_rate'] ?? 0, 0, 100);
 
@@ -302,14 +338,14 @@ if ($method === 'PUT') {
         $newStatus = calculateAutoStatus($settled, $newCheckReceived, $case['status']);
     }
 
-    // Handle Chong-specific date fields
+    // Handle attorney-specific date fields
     $assignedDate = $case['assigned_date'];
     $demandDeadline = $case['demand_deadline'];
     $demandSettledDate = $case['demand_settled_date'];
     $litigationStartDate = $case['litigation_start_date'];
     $litigationSettledDate = $case['litigation_settled_date'];
 
-    if ($case['user_id'] == 2) {
+    if ($caseOwner['is_attorney']) {
         if (!empty($data['assigned_date'])) {
             $assignedDate = sanitizeString($data['assigned_date'], 20);
             $demandDeadline = calculateDemandDeadline($assignedDate);
@@ -325,12 +361,12 @@ if ($method === 'PUT') {
         }
     }
 
-    // Calculate duration days for Chong
+    // Calculate duration days for attorneys
     $demandDurationDays = null;
     $litigationDurationDays = null;
     $totalDurationDays = null;
 
-    if ($case['user_id'] == 2) {
+    if ($caseOwner['is_attorney']) {
         if ($assignedDate && $demandSettledDate) {
             $demandDurationDays = calculateDaysBetween($assignedDate, $demandSettledDate);
         }

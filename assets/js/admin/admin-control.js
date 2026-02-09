@@ -20,7 +20,7 @@ function renderUsers() {
     const tbody = document.getElementById('usersTableBody');
 
     if (allUsers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #8b8fa3; font-size: 12px;">No users found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="padding: 24px; text-align: center; color: #8b8fa3; font-size: 12px;">No users found</td></tr>`;
         return;
     }
 
@@ -35,6 +35,12 @@ function renderUsers() {
             <td>${user.display_name}</td>
             <td class="c">
                 <span class="stat-badge ${isAdminUser ? 'pending' : 'paid'}">${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>
+            </td>
+            <td class="c">
+                ${user.is_attorney == 1 ? '<span class="stat-badge" style="background:#e0e7ff; color:#4338ca;">Attorney</span>' : ''}
+            </td>
+            <td class="c">
+                ${user.is_manager == 1 ? '<span class="stat-badge" style="background:#fef3c7; color:#92400e;">Manager</span>' : ''}
             </td>
             <td class="r">${user.commission_rate || 0}%</td>
             <td class="c">
@@ -86,6 +92,9 @@ function openAddUserModal() {
     document.getElementById('passwordHint').textContent = 'Required for new users';
     document.getElementById('userRole').value = 'employee';
     document.getElementById('userCommissionRate').value = '0';
+    document.getElementById('userIsAttorney').checked = false;
+    document.getElementById('userIsManager').checked = false;
+    toggleTeamSection();
     document.getElementById('userModal').classList.add('show');
 }
 
@@ -102,7 +111,54 @@ function editUser(id) {
     document.getElementById('passwordHint').textContent = 'Leave blank to keep current password';
     document.getElementById('userRole').value = user.role;
     document.getElementById('userCommissionRate').value = user.commission_rate || 0;
+    document.getElementById('userIsAttorney').checked = user.is_attorney == 1;
+    document.getElementById('userIsManager').checked = user.is_manager == 1;
+    toggleTeamSection();
+    if (user.is_manager == 1) {
+        loadTeamMembersForUser(user.id);
+    }
     document.getElementById('userModal').classList.add('show');
+}
+
+function toggleTeamSection() {
+    const isManager = document.getElementById('userIsManager').checked;
+    document.getElementById('teamMembersSection').style.display = isManager ? 'block' : 'none';
+}
+
+async function loadTeamMembersForUser(managerId) {
+    const container = document.getElementById('teamMembersList');
+    try {
+        const [teamResult, usersResult] = await Promise.all([
+            apiCall(`api/manager_team.php?manager_id=${managerId}`),
+            apiCall('api/users.php')
+        ]);
+        const teamIds = (teamResult.members || []).map(m => m.employee_id);
+        const employees = (usersResult.users || []).filter(u => u.is_active == 1 && u.role === 'employee' && u.id != managerId);
+
+        container.innerHTML = employees.map(emp => `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer;">
+                <input type="checkbox" class="team-member-cb" value="${emp.id}" ${teamIds.includes(emp.id) ? 'checked' : ''} style="width: 14px; height: 14px;">
+                <span style="font-size: 13px;">${escapeHtml(emp.display_name)}</span>
+            </label>
+        `).join('');
+    } catch (err) {
+        console.error('Error loading team members:', err);
+        container.innerHTML = '<span style="color: #ef4444; font-size: 12px;">Error loading team members</span>';
+    }
+}
+
+async function saveTeamMembers(managerId) {
+    const checkboxes = document.querySelectorAll('.team-member-cb:checked');
+    const employeeIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+    try {
+        await apiCall('api/manager_team.php', {
+            method: 'POST',
+            body: JSON.stringify({ manager_id: managerId, employee_ids: employeeIds })
+        });
+    } catch (err) {
+        console.error('Error saving team members:', err);
+    }
 }
 
 function closeUserModal() {
@@ -119,11 +175,16 @@ document.getElementById('userForm').addEventListener('submit', async function(e)
     const role = document.getElementById('userRole').value;
     const commissionRate = document.getElementById('userCommissionRate').value;
 
+    const isAttorney = document.getElementById('userIsAttorney').checked;
+    const isManager = document.getElementById('userIsManager').checked;
+
     const userData = {
         username,
         display_name: displayName,
         role,
-        commission_rate: parseFloat(commissionRate)
+        commission_rate: parseFloat(commissionRate),
+        is_attorney: isAttorney,
+        is_manager: isManager
     };
 
     if (password) {
@@ -140,6 +201,10 @@ document.getElementById('userForm').addEventListener('submit', async function(e)
         });
 
         if (result.success) {
+            const savedUserId = userId || result.user_id;
+            if (isManager && savedUserId) {
+                await saveTeamMembers(savedUserId);
+            }
             closeUserModal();
             loadUsers();
             alert(userId ? 'User updated successfully!' : 'User added successfully!');
