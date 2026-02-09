@@ -38,9 +38,13 @@ if ($method === 'GET') {
             $result = getSummary($pdo, $employeeId, $year);
             break;
 
-        case 'chong':
-            // Chong-specific analytics with Demand/Litigation breakdown
-            $result = getChongAnalytics($pdo, $year, $month);
+        case 'attorney':
+        case 'chong': // backward compat
+            $attorneyId = intval($_GET['attorney_id'] ?? 0);
+            if ($attorneyId <= 0) {
+                jsonResponse(['error' => 'attorney_id required'], 400);
+            }
+            $result = getAttorneyAnalytics($pdo, $attorneyId, $year, $month);
             break;
 
         case 'by_employee':
@@ -166,11 +170,9 @@ function getSummary($pdo, $employeeId, $year) {
     ];
 }
 
-function getChongAnalytics($pdo, $year, $month = '') {
-    define('CHONG_ID', 2);
-
+function getAttorneyAnalytics($pdo, $attorneyId, $year, $month = '') {
     $whereClause = "WHERE c.user_id = ? AND c.deleted_at IS NULL";
-    $params = [CHONG_ID];
+    $params = [$attorneyId];
 
     if ($month) {
         $whereClause .= " AND c.month = ?";
@@ -210,7 +212,7 @@ function getChongAnalytics($pdo, $year, $month = '') {
         WHERE user_id = ? AND deleted_at IS NULL AND phase = 'settled'
         AND demand_duration_days IS NOT NULL
     ");
-    $stmt->execute([CHONG_ID]);
+    $stmt->execute([$attorneyId]);
     $duration = $stmt->fetch();
 
     // Deadline compliance
@@ -223,7 +225,7 @@ function getChongAnalytics($pdo, $year, $month = '') {
         WHERE user_id = ? AND deleted_at IS NULL
         AND demand_settled_date IS NOT NULL AND demand_deadline IS NOT NULL
     ");
-    $stmt->execute([CHONG_ID]);
+    $stmt->execute([$attorneyId]);
     $compliance = $stmt->fetch();
 
     $complianceRate = 0;
@@ -245,11 +247,11 @@ function getChongAnalytics($pdo, $year, $month = '') {
         WHERE user_id = ? AND phase = 'demand' AND deleted_at IS NULL
         AND demand_deadline <= DATE_ADD(CURDATE(), INTERVAL 14 DAY)
     ");
-    $stmt->execute([CHONG_ID]);
+    $stmt->execute([$attorneyId]);
     $urgent = $stmt->fetch()['urgent'];
 
     return [
-        'chong_analytics' => [
+        'attorney_analytics' => [
             'phase_breakdown' => [
                 'demand_active' => (int)$breakdown['demand_active'],
                 'litigation_active' => (int)$breakdown['litigation_active'],

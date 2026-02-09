@@ -38,12 +38,12 @@
                     <thead>
                         <tr>
                             <th style="width:0;padding:0;border:none;"></th>
-                            <th><span class="th-sort" onclick="sortLitigationCases('case_number')">Case # <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortLitigationCases('client_name')">Client <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortLitigationCases('litigation_start_date')">Lit. Start <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortLitigationCases('litigation_duration_days')">Duration <span class="sort-arrow">▼</span></span></th>
-                            <th class="r"><span class="th-sort" onclick="sortLitigationCases('presuit_offer')">Pre-Suit Offer <span class="sort-arrow">▼</span></span></th>
-                            <th><span class="th-sort" onclick="sortLitigationCases('status')">Status <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortLitigationCases('case_number')">Case # <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortLitigationCases('client_name')">Client <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="date"><span class="th-sort" onclick="sortLitigationCases('litigation_start_date')">Lit. Start <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="number"><span class="th-sort" onclick="sortLitigationCases('litigation_duration_days')">Duration <span class="sort-arrow">▼</span></span></th>
+                            <th class="r" data-sort="number"><span class="th-sort" onclick="sortLitigationCases('presuit_offer')">Pre-Suit Offer <span class="sort-arrow">▼</span></span></th>
+                            <th data-sort="text"><span class="th-sort" onclick="sortLitigationCases('status')">Status <span class="sort-arrow">▼</span></span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>

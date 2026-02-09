@@ -48,18 +48,18 @@
                         <thead>
                             <tr>
                                 <th style="width:0;padding:0;border:none;"></th>
-                                <th class="c"><span class="th-sort" onclick="sortCases('status')">Status <span class="sort-arrow">▼</span></span></th>
-                                <th><span class="th-sort" onclick="sortCases('intake_date')">Intake Date <span class="sort-arrow">▼</span></span></th>
-                                <th><span class="th-sort" onclick="sortCases('case_number')">Case # <span class="sort-arrow">▼</span></span></th>
-                                <th><span class="th-sort" onclick="sortCases('client_name')">Client Name <span class="sort-arrow">▼</span></span></th>
-                                <th><span class="th-sort" onclick="sortCases('resolution_type')">Resolution Type <span class="sort-arrow">▼</span></span></th>
-                                <th class="r"><span class="th-sort" onclick="sortCases('settled')">Settled <span class="sort-arrow">▼</span></span></th>
-                                <th class="r"><span class="th-sort" onclick="sortCases('presuit_offer')">Pre Suit Offer <span class="sort-arrow">▼</span></span></th>
-                                <th class="r"><span class="th-sort" onclick="sortCases('difference')">Difference <span class="sort-arrow">▼</span></span></th>
-                                <th class="r"><span class="th-sort" onclick="sortCases('legal_fee')">Legal Fee <span class="sort-arrow">▼</span></span></th>
-                                <th class="r"><span class="th-sort" onclick="sortCases('discounted_legal_fee')">Disc. Legal Fee <span class="sort-arrow">▼</span></span></th>
-                                <th class="r"><span class="th-sort" onclick="sortCases('commission')">Commission <span class="sort-arrow">▼</span></span></th>
-                                <th><span class="th-sort" onclick="sortCases('month')">Month <span class="sort-arrow">▼</span></span></th>
+                                <th class="c" data-sort="text"><span class="th-sort" onclick="sortCases('status')">Status <span class="sort-arrow">▼</span></span></th>
+                                <th data-sort="date"><span class="th-sort" onclick="sortCases('intake_date')">Intake Date <span class="sort-arrow">▼</span></span></th>
+                                <th data-sort="text"><span class="th-sort" onclick="sortCases('case_number')">Case # <span class="sort-arrow">▼</span></span></th>
+                                <th data-sort="text"><span class="th-sort" onclick="sortCases('client_name')">Client Name <span class="sort-arrow">▼</span></span></th>
+                                <th data-sort="text"><span class="th-sort" onclick="sortCases('resolution_type')">Resolution Type <span class="sort-arrow">▼</span></span></th>
+                                <th class="r" data-sort="number"><span class="th-sort" onclick="sortCases('settled')">Settled <span class="sort-arrow">▼</span></span></th>
+                                <th class="r" data-sort="number"><span class="th-sort" onclick="sortCases('presuit_offer')">Pre Suit Offer <span class="sort-arrow">▼</span></span></th>
+                                <th class="r" data-sort="number"><span class="th-sort" onclick="sortCases('difference')">Difference <span class="sort-arrow">▼</span></span></th>
+                                <th class="r" data-sort="number"><span class="th-sort" onclick="sortCases('legal_fee')">Legal Fee <span class="sort-arrow">▼</span></span></th>
+                                <th class="r" data-sort="number"><span class="th-sort" onclick="sortCases('discounted_legal_fee')">Disc. Legal Fee <span class="sort-arrow">▼</span></span></th>
+                                <th class="r" data-sort="number"><span class="th-sort" onclick="sortCases('commission')">Commission <span class="sort-arrow">▼</span></span></th>
+                                <th data-sort="date"><span class="th-sort" onclick="sortCases('month')">Month <span class="sort-arrow">▼</span></span></th>
                                 <th class="c">Actions</th>
                             </tr>
                         </thead>

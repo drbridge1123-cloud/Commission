@@ -31,7 +31,8 @@ function sortAllCases(column) {
         allCasesSortDirection = allCasesSortDirection === 'asc' ? 'desc' : 'asc';
     } else {
         allCasesSortColumn = column;
-        allCasesSortDirection = 'asc';
+        // Month and numeric columns default to desc (newest/largest first)
+        allCasesSortDirection = (column === 'month' || ['settled', 'presuit_offer', 'difference', 'legal_fee', 'discounted_legal_fee', 'commission', 'fee_rate'].includes(column)) ? 'desc' : 'asc';
     }
 
     document.querySelectorAll('#allCasesTable .sort-arrow').forEach(arrow => {
@@ -76,6 +77,10 @@ function renderAllCases() {
             } else if (allCasesSortColumn === 'check_received') {
                 aVal = parseInt(aVal) || 0;
                 bVal = parseInt(bVal) || 0;
+            } else if (allCasesSortColumn === 'month') {
+                const monthOrder = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12};
+                aVal = monthOrder[String(aVal).toLowerCase()] || 0;
+                bVal = monthOrder[String(bVal).toLowerCase()] || 0;
             } else {
                 aVal = String(aVal).toLowerCase();
                 bVal = String(bVal).toLowerCase();
@@ -109,16 +114,14 @@ function renderAllCases() {
             casesByMonth[c.month].push(c);
         });
 
+        const monthOrder = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12,'jan':1,'feb':2,'mar':3,'apr':4,'jun':6,'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12};
         const sortedMonths = Object.keys(casesByMonth).sort((a, b) => {
-            const parseMonth = (monthStr) => {
-                const parts = monthStr.replace('.', '').split(' ');
-                const monthAbbr = parts[0];
-                const year = parts[1];
-                const monthMap = {'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-                                 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11};
-                return new Date(parseInt(year), monthMap[monthAbbr]);
-            };
-            return parseMonth(b) - parseMonth(a);
+            const pa = a.replace('.', '').toLowerCase().split(' ');
+            const pb = b.replace('.', '').toLowerCase().split(' ');
+            const yearA = pa[1] ? parseInt(pa[1]) : 0;
+            const yearB = pb[1] ? parseInt(pb[1]) : 0;
+            if (yearA !== yearB) return yearB - yearA;
+            return (monthOrder[pb[0]] || 0) - (monthOrder[pa[0]] || 0);
         });
 
         let html = '';
@@ -154,9 +157,10 @@ function renderAllCases() {
                     <td class="r" style="font-size:12px;padding:6px;">${formatCurrency(c.legal_fee || 0)}</td>
                     <td class="r" style="font-size:12px;padding:6px;">${formatCurrency(c.discounted_legal_fee || 0)}</td>
                     <td class="r" style="font-weight:700;color:#059669;font-size:12px;padding:6px;">${formatCurrency(c.commission)}</td>
-                    <td class="c" style="padding:6px;">${c.check_received ? '✓' : '-'}</td>
+                    <td class="c" style="padding:6px;">${c.check_received ? '<span style="color:#059669;font-size:11px;font-weight:600;">Received</span>' : '<span style="color:#94a3b8;font-size:11px;">—</span>'}</td>
                     <td class="c" style="padding:6px;" onclick="event.stopPropagation()">
                         <span onclick="editCaseFromRow(${c.id})" style="color: #2563eb; cursor: pointer; font-size: 10px;">Edit</span>
+                        <span onclick="deleteCaseFromRow(${c.id})" style="color: #dc2626; cursor: pointer; font-size: 10px; margin-left: 6px;">Delete</span>
                     </td>
                 </tr>
             `).join('');
@@ -178,9 +182,10 @@ function renderAllCases() {
                 <td class="r" style="font-size:12px;padding:6px;">${formatCurrency(c.legal_fee || 0)}</td>
                 <td class="r" style="font-size:12px;padding:6px;">${formatCurrency(c.discounted_legal_fee || 0)}</td>
                 <td class="r" style="font-weight:700;color:#059669;font-size:12px;padding:6px;">${formatCurrency(c.commission)}</td>
-                <td class="c" style="padding:6px;">${c.check_received ? '✓' : '-'}</td>
+                <td class="c" style="padding:6px;">${c.check_received ? '<span style="color:#059669;font-size:11px;font-weight:600;">Received</span>' : '<span style="color:#94a3b8;font-size:11px;">—</span>'}</td>
                 <td class="c" style="padding:6px;" onclick="event.stopPropagation()">
                     <span onclick="editCaseFromRow(${c.id})" style="color: #2563eb; cursor: pointer; font-size: 10px;">Edit</span>
+                    <span onclick="deleteCaseFromRow(${c.id})" style="color: #dc2626; cursor: pointer; font-size: 10px; margin-left: 6px;">Delete</span>
                 </td>
             </tr>
         `).join('');
@@ -323,7 +328,7 @@ function displayCaseDetailModal(c) {
                 <div style="position: absolute; right: 0; top: 0; bottom: 0; width: 80px; background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(168, 85, 247, 0.1));"></div>
                 <div>
                     <span style="font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.5px;">Commission</span>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px;">${c.check_received == 1 ? '✓ Check Received' : '⏳ Check Pending'}</div>
+                    <div style="font-size: 11px; margin-top: 2px; cursor: pointer;" onclick="toggleCheckFromModal(${c.id})" title="Click to toggle check status">${c.check_received == 1 ? '<span style="color:#22d3ee;">&#10003; Check Received</span>' : '<span style="color:rgba(255,255,255,0.5);">&#9203; Check Pending — click to mark received</span>'}</div>
                 </div>
                 <span style="font-size: 22px; font-weight: 700; color: #22d3ee; position: relative; z-index: 1;">${formatCurrency(c.commission)}</span>
             </div>
@@ -343,13 +348,11 @@ function displayCaseDetailModal(c) {
     `;
 
     const approvalButtonsDiv = document.getElementById('caseApprovalButtons');
+    let approvalHtml = `<button onclick="deleteCaseFromModal(${c.id})" style="padding: 7px 14px; background: #dc2626; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Delete</button>`;
     if (c.status === 'unpaid') {
-        approvalButtonsDiv.innerHTML = `
-            <button onclick="approveCaseFromModal()" style="padding: 7px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Approve</button>
-        `;
-    } else {
-        approvalButtonsDiv.innerHTML = '';
+        approvalHtml += ` <button onclick="approveCaseFromModal()" style="padding: 7px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Approve</button>`;
     }
+    approvalButtonsDiv.innerHTML = approvalHtml;
 
     document.getElementById('caseMessageRecipient').textContent = c.counsel_name;
     document.getElementById('caseMessageSubject').value = `Case #${c.case_number} - ${c.client_name}`;
@@ -360,10 +363,39 @@ function displayCaseDetailModal(c) {
     document.getElementById('allCaseDetailModal').classList.add('show');
 }
 
+async function toggleCheckFromModal(caseId) {
+    const c = allCases.find(x => x.id == caseId) || pendingCases.find(x => x.id == caseId);
+    if (!c) return;
+    const newVal = c.check_received ? 0 : 1;
+    const result = await apiCall('api/cases.php', {
+        method: 'PUT',
+        body: JSON.stringify({ id: parseInt(caseId), check_received: newVal })
+    });
+    if (result.success) {
+        c.check_received = newVal;
+        displayCaseDetailModal(c);
+        renderAllCases();
+        renderPendingCases();
+    } else {
+        alert(result.error || 'Failed to update');
+    }
+}
+
 function closeCaseModal() {
     document.getElementById('allCaseDetailModal').classList.remove('show');
     currentCaseId = null;
     window.currentCaseUserId = null;
+}
+
+function toggleCaseMessage(btn) {
+    const fields = document.getElementById('caseMessageFields');
+    const isHidden = fields.style.display === 'none';
+    fields.style.display = isHidden ? '' : 'none';
+    btn.classList.toggle('active', isHidden);
+    if (!isHidden) {
+        document.getElementById('caseMessageSubject').value = '';
+        document.getElementById('caseMessageBody').value = '';
+    }
 }
 
 async function sendCaseMessage() {
@@ -505,6 +537,10 @@ function closeEditModal() {
     currentCaseId = null;
 }
 
+async function deleteCaseFromModal(id) {
+    await deleteCaseFromRow(id);
+}
+
 async function deleteCaseFromRow(id) {
     if (!confirm('Are you sure you want to delete this case?')) return;
 
@@ -514,7 +550,8 @@ async function deleteCaseFromRow(id) {
         if (result.success) {
             loadAllCases();
             loadPendingCases();
-            loadStats();
+            if (typeof loadStats === 'function') loadStats();
+            if (typeof loadOverviewData === 'function') loadOverviewData();
             closeCaseModal();
             closeEditModal();
         }
@@ -555,7 +592,8 @@ document.getElementById('editCaseForm').addEventListener('submit', async (e) => 
             closeEditModal();
             loadAllCases();
             loadPendingCases();
-            loadStats();
+            if (typeof loadStats === 'function') loadStats();
+            if (typeof loadOverviewData === 'function') loadOverviewData();
         }
     } catch (err) {
         console.error('Error:', err);

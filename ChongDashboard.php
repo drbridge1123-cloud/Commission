@@ -11,8 +11,8 @@ if (isAdmin()) {
 
 $user = getCurrentUser();
 
-// Only Chong (user_id = 2) can access
-if ($user['id'] != 2) {
+// Only attorneys can access
+if (!isAttorney()) {
     header('Location: BridgeLaw.php');
     exit;
 }
@@ -38,7 +38,8 @@ $resolutionTypes = getChongResolutionTypes();
     <link rel="stylesheet" href="assets/css/common.css?v=<?= filemtime('assets/css/common.css') ?>">
     <link rel="stylesheet" href="assets/css/admin.css?v=<?= filemtime('assets/css/admin.css') ?>">
     <link rel="stylesheet" href="assets/css/steel-minimal.css?v=<?= filemtime('assets/css/steel-minimal.css') ?>">
-    <link rel="stylesheet" href="assets/css/chong-inline.css?v=<?= filemtime('assets/css/chong-inline.css') ?>"
+    <link rel="stylesheet" href="assets/css/chong-inline.css?v=<?= filemtime('assets/css/chong-inline.css') ?>">
+    <link rel="stylesheet" href="assets/css/traffic-v3.css?v=<?= filemtime('assets/css/traffic-v3.css') ?>">
 </head>
 <body class="steel-minimal">
     <!-- Sidebar -->
@@ -157,6 +158,7 @@ $resolutionTypes = getChongResolutionTypes();
     <!-- Shared JS -->
     <script src="assets/js/shared/utils.js?v=<?= filemtime('assets/js/shared/utils.js') ?>"></script>
     <script src="assets/js/shared/shell.js?v=<?= filemtime('assets/js/shared/shell.js') ?>"></script>
+    <script src="assets/js/shared/table-sort.js?v=<?= filemtime('assets/js/shared/table-sort.js') ?>"></script>
 
     <!-- PHP-dependent variables (must be inline) -->
     <script>

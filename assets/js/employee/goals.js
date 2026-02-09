@@ -214,7 +214,7 @@ async function toggleMonthDetail(row, year, month, type) {
                 subRows += `<tr>
                     <td style="font-size:11px; padding:4px 8px;">${c.case_number || '-'}</td>
                     <td style="font-size:11px; padding:4px 8px;">${c.client_name}</td>
-                    <td style="font-size:11px; padding:4px 8px;">${c.resolution_type || 'TBD'}</td>
+                    <td style="font-size:11px; padding:4px 8px;">${c.resolution_type || '-'}</td>
                     <td style="font-size:11px; padding:4px 8px;"><span style="color:${statusColor}; font-weight:500;">${c.status}</span></td>
                 </tr>`;
             });
@@ -234,7 +234,7 @@ async function toggleMonthDetail(row, year, month, type) {
                 subRows += `<tr>
                     <td style="font-size:11px; padding:4px 8px;">${c.case_number || '-'}</td>
                     <td style="font-size:11px; padding:4px 8px;">${c.client_name}</td>
-                    <td style="font-size:11px; padding:4px 8px;">${c.resolution_type || 'TBD'}</td>
+                    <td style="font-size:11px; padding:4px 8px;">${c.resolution_type || '-'}</td>
                     <td style="font-size:11px; padding:4px 8px; text-align:right;">${formatExact(c.discounted_legal_fee)}</td>
                 </tr>`;
             });

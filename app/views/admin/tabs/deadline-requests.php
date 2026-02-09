@@ -19,14 +19,14 @@
                     <table class="excel-table" id="deadlineRequestsTable">
                         <thead>
                             <tr>
-                                <th>Date Requested</th>
-                                <th>Employee</th>
-                                <th>Case #</th>
-                                <th>Client</th>
-                                <th>Current Deadline</th>
-                                <th>Requested Deadline</th>
-                                <th>Reason</th>
-                                <th>Status</th>
+                                <th data-sort="date">Date Requested</th>
+                                <th data-sort="text">Employee</th>
+                                <th data-sort="text">Case #</th>
+                                <th data-sort="text">Client</th>
+                                <th data-sort="date">Current Deadline</th>
+                                <th data-sort="date">Requested Deadline</th>
+                                <th data-sort="text">Reason</th>
+                                <th data-sort="text">Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>

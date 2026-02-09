@@ -19,10 +19,10 @@
                 <table class="tbl">
                     <thead>
                         <tr>
-                            <th>Employee</th>
-                            <th class="r">Cases</th>
+                            <th data-sort="text">Employee</th>
+                            <th class="r" data-sort="number">Cases</th>
                             <th style="width:120px;">Progress</th>
-                            <th class="r">Legal Fee</th>
+                            <th class="r" data-sort="number">Legal Fee</th>
                             <th style="width:120px;">Progress</th>
                             <th class="c">Pace</th>
                             <th class="c" style="width:60px;">Edit</th>

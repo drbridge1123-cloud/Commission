@@ -89,9 +89,10 @@ function calculateCaseFinancials($settled, $presuitOffer, $feeRate, $commissionR
  * @param float $discountedLegalFee The discounted legal fee
  * @param float $manualCommissionRate Optional manual commission rate for variable types
  * @param float $manualFeeRate Optional manual fee rate for variable types
+ * @param float|null $overrideFeeRate Optional fee rate override (e.g. 33.33→40 or 40→33.33)
  * @return array Commission calculation result with all details
  */
-function calculateChongCommission($phase, $resolutionType, $settled, $presuitOffer, $discountedLegalFee, $manualCommissionRate = 0, $manualFeeRate = 0) {
+function calculateChongCommission($phase, $resolutionType, $settled, $presuitOffer, $discountedLegalFee, $manualCommissionRate = 0, $manualFeeRate = 0, $overrideFeeRate = null) {
     // Default result structure
     $result = [
         'commission' => 0,
@@ -106,7 +107,7 @@ function calculateChongCommission($phase, $resolutionType, $settled, $presuitOff
     // ── DEMAND Phase ──
     // Demand has NO Pre-Suit Offer, Commission = Discounted Legal Fee x 5%
     // Legal Fee = Settled x 1/3 (33.33%)
-    if ($phase === 'demand' || $resolutionType === 'Demand Settle') {
+    if ($phase === 'demand' || in_array($resolutionType, ['Demand Settle', 'Demand Settled'])) {
         $legalFee = round($settled / 3, 2);
         $result['commission'] = round($discountedLegalFee * 0.05, 2);
         $result['commission_type'] = 'demand_5pct';
@@ -115,6 +116,29 @@ function calculateChongCommission($phase, $resolutionType, $settled, $presuitOff
         $result['difference'] = 0;
         $result['legal_fee'] = $legalFee;
         $result['description'] = 'Demand (5% of Disc. Legal Fee)';
+        return $result;
+    }
+
+    // ── FEE RATE OVERRIDE ──
+    // When user manually overrides the fee rate (e.g. 33.33% → 40% or vice versa)
+    // Keep original resolution type's deduction behavior
+    if ($overrideFeeRate !== null && $phase === 'litigation') {
+        $difference = $settled - $presuitOffer;
+        $presuitDeductedGroup = ['No Offer Settle', 'File and Bump', 'Post Deposition Settle', 'Mediation', 'Settled Post Arbitration', 'Settlement Conference'];
+        $base = in_array($resolutionType, $presuitDeductedGroup) ? $difference : $settled;
+
+        if ($overrideFeeRate == 40) {
+            $legalFee = round($base * 0.40, 2);
+        } else {
+            $legalFee = round($base / 3, 2);
+        }
+        $result['commission'] = round($discountedLegalFee * 0.20, 2);
+        $result['commission_type'] = 'litigation_override';
+        $result['commission_rate'] = 20;
+        $result['fee_rate'] = $overrideFeeRate;
+        $result['difference'] = $difference;
+        $result['legal_fee'] = $legalFee;
+        $result['description'] = "Litigation {$overrideFeeRate}% (Override, 20% of Disc. Legal Fee)";
         return $result;
     }
 
@@ -137,6 +161,7 @@ function calculateChongCommission($phase, $resolutionType, $settled, $presuitOff
     // File and Bump, Post Deposition Settle, Mediation, Settled Post Arbitration, Settlement Conference
     // Legal Fee = (Settled - PreSuit) / 3
     $thirtyThreePctGroup = [
+        'No Offer Settle',
         'File and Bump',
         'Post Deposition Settle',
         'Mediation',
@@ -157,8 +182,8 @@ function calculateChongCommission($phase, $resolutionType, $settled, $presuitOff
     }
 
     // ── VARIABLE Group (Manual input) ──
-    // Co-Counsel, Other, No Offer Settle - All manual entry
-    $variableGroup = ['Co-Counsel', 'Other', 'No Offer Settle'];
+    // Co-Counsel, Other - All manual entry
+    $variableGroup = ['Co-Counsel', 'Other'];
     if (in_array($resolutionType, $variableGroup) || $manualCommissionRate > 0) {
         $difference = $settled - $presuitOffer;
         $legalFee = $manualFeeRate > 0 ? round($settled * ($manualFeeRate / 100), 2) : 0;
@@ -189,6 +214,7 @@ function getChongResolutionTypes() {
     return [
         'demand' => ['Demand Settle'],
         'litigation_33pct' => [
+            'No Offer Settle',
             'File and Bump',
             'Post Deposition Settle',
             'Mediation',
@@ -201,8 +227,7 @@ function getChongResolutionTypes() {
         ],
         'variable' => [
             'Co-Counsel',
-            'Other',
-            'No Offer Settle'
+            'Other'
         ]
     ];
 }
@@ -487,5 +512,24 @@ function arrayGet($array, $key, $default = null) {
  */
 function generateTempPassword() {
     return bin2hex(random_bytes(TEMP_PASSWORD_LENGTH / 2));
+}
+
+/**
+ * Get employee IDs managed by a manager user
+ * Uses manager_team table set via Admin Control
+ *
+ * @param int $managerId The manager's user ID
+ * @return array Array of employee user IDs
+ */
+function getManagedEmployeeIds($managerId) {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT mt.employee_id
+        FROM manager_team mt
+        JOIN users u ON mt.employee_id = u.id AND u.is_active = 1
+        WHERE mt.manager_id = ?
+    ");
+    $stmt->execute([$managerId]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 ?>

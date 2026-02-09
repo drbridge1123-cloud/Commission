@@ -208,6 +208,9 @@ function sortLitigationCases(column) {
     filterLitigationCases();
 }
 
+// Fee rate override state
+let defaultFeeRateForResolution = null;
+
 // Litigation settle modal
 function openSettleLitigationModal(caseId, caseNumber, clientName, presuitOffer) {
     const form = document.getElementById('settleLitigationForm');
@@ -219,6 +222,12 @@ function openSettleLitigationModal(caseId, caseNumber, clientName, presuitOffer)
     document.getElementById('settleLitCaseInfo').textContent = `${caseNumber} - ${clientName}`;
     document.getElementById('resolutionInfo').style.display = 'none';
     document.getElementById('variableFields').style.display = 'none';
+
+    // Reset fee rate override state
+    defaultFeeRateForResolution = null;
+    document.getElementById('feeRateOverrideTag').style.display = 'none';
+    updateNoteRequirement(false);
+
     openModal('settleLitigationModal');
 }
 
@@ -227,17 +236,63 @@ function onResolutionTypeChange() {
     const resType = form.resolution_type.value;
     const config = resolutionConfig[resType];
 
-    if (config) {
+    if (config && !config.variable) {
         document.getElementById('resolutionInfo').style.display = 'block';
-        document.getElementById('infoFeeRate').textContent = config.variable ? 'Manual' : config.feeRate + '%';
-        document.getElementById('infoCommRate').textContent = config.variable ? 'Manual' : config.commRate + '%';
-        document.getElementById('variableFields').style.display = config.variable ? 'flex' : 'none';
+        document.getElementById('variableFields').style.display = 'none';
+
+        // Set fee rate dropdown to default for this resolution type
+        const feeRateSelect = document.getElementById('feeRateSelect');
+        feeRateSelect.value = config.feeRate;
+        defaultFeeRateForResolution = config.feeRate;
+
+        // Clear override state
+        document.getElementById('feeRateOverrideTag').style.display = 'none';
+        updateNoteRequirement(false);
+
+        document.getElementById('infoCommRate').textContent = config.commRate + '%';
+    } else if (config && config.variable) {
+        document.getElementById('resolutionInfo').style.display = 'none';
+        document.getElementById('variableFields').style.display = 'flex';
+        defaultFeeRateForResolution = null;
     } else {
         document.getElementById('resolutionInfo').style.display = 'none';
         document.getElementById('variableFields').style.display = 'none';
+        defaultFeeRateForResolution = null;
     }
 
+    // Reset disc legal fee auto-calc when resolution type changes
+    form.querySelector('[name="discounted_legal_fee"]').dataset.userModified = '';
     calculateLitCommission();
+}
+
+function onFeeRateChange() {
+    const currentRate = parseFloat(document.getElementById('feeRateSelect').value);
+    const isOverridden = defaultFeeRateForResolution !== null && currentRate !== defaultFeeRateForResolution;
+
+    document.getElementById('feeRateOverrideTag').style.display = isOverridden ? 'inline' : 'none';
+    updateNoteRequirement(isOverridden);
+
+    // Reset disc legal fee auto-calc so it recalculates with new fee rate
+    const form = document.getElementById('settleLitigationForm');
+    form.querySelector('[name="discounted_legal_fee"]').dataset.userModified = '';
+
+    calculateLitCommission();
+}
+
+function updateNoteRequirement(required) {
+    const noteLabel = document.getElementById('litNoteLabel');
+    const noteInput = document.getElementById('litNote');
+    const noteRequired = document.getElementById('litNoteRequired');
+
+    if (required) {
+        noteLabel.innerHTML = 'Note <span style="color:#dc2626;">*</span>';
+        noteInput.style.borderColor = '#dc2626';
+        noteRequired.style.display = 'block';
+    } else {
+        noteLabel.textContent = 'Note';
+        noteInput.style.borderColor = '';
+        noteRequired.style.display = 'none';
+    }
 }
 
 function calculateLitCommission() {
@@ -253,15 +308,22 @@ function calculateLitCommission() {
 
     if (config.variable) {
         const manualFeeRate = parseFloat(form.manual_fee_rate.value) || 0;
-        const manualCommRate = parseFloat(form.manual_commission_rate.value) || 0;
         difference = settled - presuitOffer;
         legalFee = settled * (manualFeeRate / 100);
-    } else if (config.feeRate === 40) {
-        difference = settled - presuitOffer;
-        legalFee = settled * 0.40;
     } else {
+        // Use the fee rate from the dropdown (allows override)
+        const selectedFeeRate = parseFloat(document.getElementById('feeRateSelect').value);
         difference = settled - presuitOffer;
-        legalFee = difference / 3;
+
+        // Use resolution type's deduction behavior (deductPresuit)
+        // Presuit deducted group: base = difference, Non-deducted group: base = settled
+        const base = config.deductPresuit ? difference : settled;
+
+        if (selectedFeeRate === 40) {
+            legalFee = base * 0.40;
+        } else {
+            legalFee = base / 3;
+        }
     }
 
     if (!form.discounted_legal_fee.dataset.userModified) {
@@ -285,6 +347,18 @@ function calculateLitCommission() {
 async function submitSettleLitigation(event) {
     event.preventDefault();
     const form = event.target;
+
+    // Check fee rate override → note required
+    const feeRateSelect = document.getElementById('feeRateSelect');
+    const isOverridden = defaultFeeRateForResolution !== null &&
+        parseFloat(feeRateSelect.value) !== defaultFeeRateForResolution;
+
+    if (isOverridden && !form.note.value.trim()) {
+        showToast('Fee rate가 변경되었습니다. Note를 입력해주세요.', 'error');
+        document.getElementById('litNote').focus();
+        return;
+    }
+
     const caseId = form.case_id.value;
     const data = {
         resolution_type: form.resolution_type.value,
@@ -294,8 +368,14 @@ async function submitSettleLitigation(event) {
         manual_fee_rate: parseFloat(form.manual_fee_rate?.value) || 0,
         manual_commission_rate: parseFloat(form.manual_commission_rate?.value) || 0,
         month: form.month.value,
-        check_received: form.check_received.checked
+        check_received: form.check_received.checked,
+        note: form.note.value
     };
+
+    // If fee rate overridden, send the override value
+    if (isOverridden) {
+        data.fee_rate_override = parseFloat(feeRateSelect.value);
+    }
 
     const result = await apiCall(`api/chong_cases.php?id=${caseId}&action=settle_litigation`, 'PUT', data);
     if (result.success) {

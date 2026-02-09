@@ -2,6 +2,21 @@
  * ChongDashboard - Demand tab functions.
  */
 
+function toggleSettlementSection(btn) {
+    const fields = document.getElementById('newDemandSettlementFields');
+    const isHidden = fields.style.display === 'none';
+    fields.style.display = isHidden ? '' : 'none';
+    btn.classList.toggle('active', isHidden);
+
+    // Clear fields when collapsing
+    if (!isHidden) {
+        const form = document.getElementById('newDemandForm');
+        if (form.settled) form.settled.value = '';
+        if (form.discounted_legal_fee) form.discounted_legal_fee.value = '';
+        if (form.commission_display) form.commission_display.value = '';
+    }
+}
+
 async function loadDemandCases() {
     const result = await apiCall('api/chong_cases.php?phase=demand');
     if (result.cases) {

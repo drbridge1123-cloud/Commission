@@ -368,6 +368,38 @@ function isAdmin()
 }
 
 /**
+ * Check if a user is an attorney
+ * @param int|null $userId If null, checks current session user
+ */
+function isAttorney($userId = null)
+{
+    if ($userId === null) {
+        return !empty($_SESSION['is_attorney']);
+    }
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT is_attorney FROM users WHERE id = ? AND is_active = 1");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    return $user && $user['is_attorney'];
+}
+
+/**
+ * Check if a user is a manager
+ * @param int|null $userId If null, checks current session user
+ */
+function isManager($userId = null)
+{
+    if ($userId === null) {
+        return !empty($_SESSION['is_manager']);
+    }
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT is_manager FROM users WHERE id = ? AND is_active = 1");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    return $user && $user['is_manager'];
+}
+
+/**
  * Check if the current user has a specific permission
  * Admins always have all permissions
  */
@@ -394,6 +426,8 @@ function getCurrentUser()
         'role' => $_SESSION['role'] ?? 'employee',
         'commission_rate' => $_SESSION['commission_rate'] ?? 10.00,
         'uses_presuit_offer' => $_SESSION['uses_presuit_offer'] ?? 1,
+        'is_attorney' => $_SESSION['is_attorney'] ?? 0,
+        'is_manager' => $_SESSION['is_manager'] ?? 0,
         'permissions' => $_SESSION['permissions'] ?? []
     ];
 }
@@ -464,6 +498,8 @@ function loginUser($username, $password)
         $_SESSION['role'] = $user['role'] ?? 'employee';
         $_SESSION['commission_rate'] = $user['commission_rate'] ?? 10.00;
         $_SESSION['uses_presuit_offer'] = $user['uses_presuit_offer'] ?? 1;
+        $_SESSION['is_attorney'] = $user['is_attorney'] ?? 0;
+        $_SESSION['is_manager'] = $user['is_manager'] ?? 0;
         $_SESSION['permissions'] = json_decode($user['permissions'] ?? '{}', true) ?: [];
         $_SESSION['login_time'] = time();
         $_SESSION['last_activity'] = time();

@@ -56,12 +56,12 @@
                     <table class="excel-table" id="recentSettlementsTable">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Client</th>
-                                <th>Type</th>
-                                <th>Resolution</th>
-                                <th style="text-align: right;">Settled</th>
-                                <th style="text-align: right;">Commission</th>
+                                <th data-sort="date">Date</th>
+                                <th data-sort="text">Client</th>
+                                <th data-sort="text">Type</th>
+                                <th data-sort="text">Resolution</th>
+                                <th data-sort="number" style="text-align: right;">Settled</th>
+                                <th data-sort="number" style="text-align: right;">Commission</th>
                             </tr>
                         </thead>
                         <tbody id="recentSettlementsBody">

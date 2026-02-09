@@ -9,6 +9,10 @@ require_once 'includes/auth.php';
 if (isLoggedIn()) {
     if (isAdmin()) {
         header('Location: admin.php');
+    } elseif (isAttorney()) {
+        header('Location: ChongDashboard.php');
+    } elseif (isManager()) {
+        header('Location: ManagerDashboard.php');
     } else {
         header('Location: BridgeLaw.php');
     }
@@ -35,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result['success']) {
                 if (isAdmin()) {
                     header('Location: admin.php');
+                } elseif (isAttorney()) {
+                    header('Location: ChongDashboard.php');
+                } elseif (isManager()) {
+                    header('Location: ManagerDashboard.php');
                 } else {
                     header('Location: BridgeLaw.php');
                 }

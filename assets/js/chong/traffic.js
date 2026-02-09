@@ -1,9 +1,10 @@
 /**
  * ChongDashboard - Traffic tab functions (cases, commission, requests sub-tabs).
+ * V3 compact layout — no sidebar, dropdown-based filters.
  */
 
 // ============================================
-// Traffic Sub-Tab System
+// Traffic Sub-Tab System (V3 Pills)
 // ============================================
 
 function switchTrafficSubTab(subTab) {
@@ -11,7 +12,7 @@ function switchTrafficSubTab(subTab) {
     ['cases', 'commission', 'requests'].forEach(t => {
         const panel = document.getElementById('trafficSubContent-' + t);
         if (panel) panel.style.display = t === subTab ? '' : 'none';
-        const btn = document.getElementById('trafficSubTab-' + t);
+        const btn = document.getElementById('tv3PillTab-' + t);
         if (btn) btn.classList.toggle('active', t === subTab);
     });
     if (subTab === 'cases') {
@@ -22,6 +23,194 @@ function switchTrafficSubTab(subTab) {
     } else if (subTab === 'requests') {
         loadAllTrafficRequests();
     }
+}
+
+// ============================================
+// Traffic Cases — Load, Filter, Render
+// ============================================
+
+async function loadTrafficCases() {
+    try {
+        const result = await apiCall('api/traffic.php');
+        if (result.cases) {
+            trafficCasesData = result.cases;
+            updateTrafficStats(trafficCasesData);
+            populateTrafficViewDropdowns();
+            filterTrafficCases();
+            if (currentTrafficSubTab === 'commission') {
+                updateCommissionStats();
+                filterCommTraffic();
+            }
+        }
+    } catch (err) {
+        console.error('Error loading traffic cases:', err);
+    }
+}
+
+function populateTrafficViewDropdowns() {
+    // Populate sub-filter dropdown options based on current data
+    // Options are built dynamically when view changes
+}
+
+function onTrafficViewChange() {
+    const view = document.getElementById('tv3ViewFilter').value;
+    const subGroup = document.getElementById('tv3SubFilterGroup');
+    const subLabel = document.getElementById('tv3SubFilterLabel');
+    const subSelect = document.getElementById('tv3SubFilter');
+
+    if (view === 'all') {
+        subGroup.style.display = 'none';
+        filterTrafficCases();
+        return;
+    }
+
+    subGroup.style.display = '';
+    let items = [];
+
+    if (view === 'referral') {
+        subLabel.textContent = 'Requester';
+        const refs = {};
+        trafficCasesData.forEach(c => {
+            const ref = c.referral_source || 'Unknown';
+            refs[ref] = (refs[ref] || 0) + 1;
+        });
+        items = Object.entries(refs).sort((a, b) => b[1] - a[1]);
+    } else if (view === 'court') {
+        subLabel.textContent = 'Court';
+        const courts = {};
+        trafficCasesData.forEach(c => {
+            const court = c.court || 'Unknown';
+            courts[court] = (courts[court] || 0) + 1;
+        });
+        items = Object.entries(courts).sort((a, b) => a[0].localeCompare(b[0]));
+    } else if (view === 'year') {
+        subLabel.textContent = 'Year';
+        const years = {};
+        trafficCasesData.forEach(c => {
+            const year = c.court_date ? c.court_date.substring(0, 4) : 'Unknown';
+            years[year] = (years[year] || 0) + 1;
+        });
+        items = Object.entries(years).sort((a, b) => b[0].localeCompare(a[0]));
+    }
+
+    subSelect.innerHTML = '<option value="all">All</option>' +
+        items.map(([name, count]) =>
+            `<option value="${escapeHtml(name)}">${escapeHtml(name)} (${count})</option>`
+        ).join('');
+
+    filterTrafficCases();
+}
+
+function filterTrafficCases() {
+    const search = (document.getElementById('trafficSearch').value || '').toLowerCase();
+    const statusFilter = document.getElementById('tv3StatusFilter')?.value || 'active';
+    const viewFilter = document.getElementById('tv3ViewFilter')?.value || 'all';
+    const subFilter = document.getElementById('tv3SubFilter')?.value || 'all';
+
+    // Update state for external references
+    currentTrafficStatusFilter = statusFilter;
+
+    let filtered = trafficCasesData;
+
+    // Status filter
+    if (statusFilter === 'active') {
+        filtered = filtered.filter(c => !c.disposition || c.disposition === 'pending');
+    } else if (statusFilter === 'done') {
+        filtered = filtered.filter(c => c.disposition === 'dismissed' || c.disposition === 'amended');
+    }
+
+    // View sub-filter
+    if (viewFilter !== 'all' && subFilter !== 'all') {
+        filtered = filtered.filter(c => {
+            if (viewFilter === 'referral') {
+                return (c.referral_source || 'Unknown') === subFilter;
+            } else if (viewFilter === 'court') {
+                return (c.court || 'Unknown') === subFilter;
+            } else if (viewFilter === 'year') {
+                const year = c.court_date ? c.court_date.substring(0, 4) : 'Unknown';
+                return year === subFilter;
+            }
+            return true;
+        });
+    }
+
+    // Search
+    if (search) {
+        filtered = filtered.filter(c =>
+            (c.client_name || '').toLowerCase().includes(search) ||
+            (c.case_number || '').toLowerCase().includes(search) ||
+            (c.court || '').toLowerCase().includes(search) ||
+            (c.charge || '').toLowerCase().includes(search)
+        );
+    }
+
+    renderTrafficTable(filtered);
+    updateTV3CasesFooter(filtered);
+}
+
+function updateTrafficStats(cases) {
+    const active = cases.filter(c => !c.disposition || c.disposition === 'pending').length;
+    const dismissed = cases.filter(c => c.disposition === 'dismissed').length;
+    const amended = cases.filter(c => c.disposition === 'amended').length;
+    const totalComm = cases.reduce((sum, c) => sum + getTrafficCommission(c.disposition), 0);
+
+    document.getElementById('trafficActive').textContent = active;
+    document.getElementById('trafficDismissed').textContent = dismissed;
+    document.getElementById('trafficAmended').textContent = amended;
+    document.getElementById('trafficCommission').textContent = formatCurrency(totalComm);
+}
+
+function renderTrafficTable(cases) {
+    const tbody = document.getElementById('trafficTableBody');
+    if (!cases || cases.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="tv3-empty">No traffic cases</td></tr>';
+        document.getElementById('trafficCaseCount').textContent = '0';
+        return;
+    }
+
+    tbody.innerHTML = cases.map(c => {
+        const discoveryBadge = c.discovery == 1
+            ? '<span class="tv3-badge dismissed">Received</span>'
+            : '';
+        const statusBadge = c.status === 'resolved'
+            ? '<span class="tv3-badge dismissed">Resolved</span>'
+            : '<span class="tv3-badge active">Active</span>';
+
+        return `
+            <tr onclick="openTrafficModal(trafficCasesData.find(x => x.id == ${c.id}))">
+                <td>${escapeHtml(c.client_name)}</td>
+                <td style="font-family: monospace; font-size: 12px;">${escapeHtml(c.case_number || '-')}</td>
+                <td>${escapeHtml(c.court || '-')}</td>
+                <td>${escapeHtml(c.charge || '-')}</td>
+                <td>${c.court_date ? formatDate(c.court_date) : '-'}</td>
+                <td>${c.noa_sent_date || '-'}</td>
+                <td style="text-align:center;">${discoveryBadge}</td>
+                <td style="text-align:center;">${statusBadge}</td>
+                <td>${escapeHtml(c.referral_source || '-')}</td>
+                <td style="text-align:center;" onclick="event.stopPropagation();">
+                    <div style="display:flex; gap:4px; justify-content:center;">
+                        <button class="tv3-icon-btn" onclick="downloadTrafficCasePDF(${c.id})" title="Download PDF">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        </button>
+                        <button class="tv3-icon-btn danger" onclick="deleteTrafficCase(${c.id})" title="Delete">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    document.getElementById('trafficCaseCount').textContent = cases.length;
+}
+
+function updateTV3CasesFooter(cases) {
+    const dismissed = cases.filter(c => c.disposition === 'dismissed').length;
+    const amended = cases.filter(c => c.disposition === 'amended').length;
+    const elDismissed = document.getElementById('tv3FootDismissed');
+    const elAmended = document.getElementById('tv3FootAmended');
+    if (elDismissed) elDismissed.textContent = dismissed;
+    if (elAmended) elAmended.textContent = amended;
 }
 
 // ============================================
@@ -42,10 +231,6 @@ function updateCommissionStats() {
     document.getElementById('commPaidTotal').textContent = formatCurrency(paidTotal);
     document.getElementById('commUnpaidTotal').textContent = formatCurrency(unpaidTotal);
     document.getElementById('commCaseCount').textContent = commCases.length;
-
-    document.getElementById('commCountAll').textContent = commCases.length;
-    document.getElementById('commCountPaid').textContent = paid.length;
-    document.getElementById('commCountUnpaid').textContent = unpaid.length;
 
     populateCommissionDropdowns(commCases);
 }
@@ -81,10 +266,6 @@ function populateCommissionDropdowns(cases) {
 
 function setCommTrafficFilter(filter) {
     currentCommTrafficFilter = filter;
-    ['all', 'paid', 'unpaid'].forEach(f => {
-        const btn = document.getElementById('commFilterBtn-' + f);
-        if (btn) btn.classList.toggle('active', f === filter);
-    });
     filterCommTraffic();
 }
 
@@ -129,7 +310,7 @@ function filterCommTraffic() {
 function renderCommissionTable(cases) {
     const tbody = document.getElementById('commTrafficTableBody');
     if (!cases || !cases.length) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#6b7280; padding:40px;">No commission records</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="tv3-empty">No commission records</td></tr>';
         document.getElementById('commTrafficCaseCount').textContent = '0 cases';
         document.getElementById('commTrafficTotal').textContent = '$0.00';
         return;
@@ -159,22 +340,21 @@ function renderCommissionTable(cases) {
     tbody.innerHTML = sorted.map(c => {
         const commission = getTrafficCommission(c.disposition);
         const dispBadge = c.disposition === 'dismissed'
-            ? '<span class="ink-badge" style="background:#d1fae5;color:#059669;">dismissed</span>'
-            : '<span class="ink-badge" style="background:#fef3c7;color:#d97706;">amended</span>';
+            ? '<span class="tv3-badge dismissed">dismissed</span>'
+            : '<span class="tv3-badge amended">amended</span>';
         const paidBadge = c.paid == 1
-            ? `<span class="ink-badge paid" style="cursor:pointer;" onclick="event.stopPropagation(); toggleTrafficPaid(${c.id}, 0)">PAID</span>`
-            : `<span class="ink-badge unpaid" style="cursor:pointer;" onclick="event.stopPropagation(); toggleTrafficPaid(${c.id}, 1)">UNPAID</span>`;
+            ? `<span class="tv3-badge paid" onclick="event.stopPropagation(); toggleTrafficPaid(${c.id}, 0)">PAID</span>`
+            : `<span class="tv3-badge unpaid" onclick="event.stopPropagation(); toggleTrafficPaid(${c.id}, 1)">UNPAID</span>`;
 
         return `
-            <tr class="clickable-row" onclick="openTrafficModal(trafficCasesData.find(x => x.id == ${c.id}))" style="cursor:pointer;">
-                <td style="width:0;padding:0;border:none;"></td>
+            <tr onclick="openTrafficModal(trafficCasesData.find(x => x.id == ${c.id}))">
                 <td>${escapeHtml(c.client_name)}</td>
                 <td>${escapeHtml(c.court || '-')}</td>
                 <td>${c.court_date ? formatDate(c.court_date) : '-'}</td>
                 <td>${c.resolved_at ? formatDate(c.resolved_at) : '-'}</td>
                 <td>${dispBadge}</td>
                 <td>${escapeHtml(c.referral_source || '-')}</td>
-                <td style="text-align:right; font-weight:600; color:#059669;">${formatCurrency(commission)}</td>
+                <td class="r" style="font-weight:600; color:#059669;">${formatCurrency(commission)}</td>
                 <td style="text-align:center;">${paidBadge}</td>
             </tr>
         `;
@@ -285,7 +465,6 @@ async function loadAllTrafficRequests() {
         }
 
         renderPendingRequestsInCases();
-
         updateRequestStats();
         filterRequests();
     } catch (err) {
@@ -303,44 +482,44 @@ function renderPendingRequestsInCases() {
     }
 
     section.style.display = 'block';
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '\u2014';
 
     container.innerHTML = pendingTrafficRequests.map(r => {
         const reqName = (r.referral_source || r.requester_name || '').replace(/\s*\(.*?\)\s*$/, '');
         return `
-            <div style="background: white; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr; gap: 12px; align-items: center;">
+            <div class="tv3-pending-card">
+                <div class="tv3-pending-card-grid">
                     <div>
-                        <div style="font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: 0.5px;">Requester</div>
-                        <div style="font-size: 13px; font-weight: 600; color: #1a1a2e;">${escapeHtml(reqName || '—')}</div>
+                        <div class="tv3-pending-label">Requester</div>
+                        <div class="tv3-pending-val">${escapeHtml(reqName || '\u2014')}</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: 0.5px;">Client</div>
-                        <div style="font-size: 13px; font-weight: 600; color: #1a1a2e;">${escapeHtml(r.client_name)}</div>
+                        <div class="tv3-pending-label">Client</div>
+                        <div class="tv3-pending-val">${escapeHtml(r.client_name)}</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: 0.5px;">Court</div>
-                        <div style="font-size: 13px; color: #3d3f4e;">${escapeHtml(r.court || '—')}</div>
+                        <div class="tv3-pending-label">Court</div>
+                        <div class="tv3-pending-val dim">${escapeHtml(r.court || '\u2014')}</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: 0.5px;">Ticket Issued</div>
-                        <div style="font-size: 13px; color: #3d3f4e;">${fmtDate(r.citation_issued_date)}</div>
+                        <div class="tv3-pending-label">Ticket Issued</div>
+                        <div class="tv3-pending-val dim">${fmtDate(r.citation_issued_date)}</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: 0.5px;">Court Date</div>
-                        <div style="font-size: 13px; color: #3d3f4e;">${fmtDate(r.court_date)}</div>
+                        <div class="tv3-pending-label">Court Date</div>
+                        <div class="tv3-pending-val dim">${fmtDate(r.court_date)}</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: 0.5px;">Charge</div>
-                        <div style="font-size: 12px; color: #5c5f73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(r.charge || '')}">${escapeHtml(r.charge || '—')}</div>
+                        <div class="tv3-pending-label">Charge</div>
+                        <div class="tv3-pending-val dim" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(r.charge || '')}">${escapeHtml(r.charge || '\u2014')}</div>
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button onclick="acceptTrafficRequest(${r.id})" style="background: #059669; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 6px;">
+                    <button class="tv3-btn-accept" onclick="acceptTrafficRequest(${r.id})">
                         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
                         Accept
                     </button>
-                    <button onclick="denyTrafficRequest(${r.id}, '${escapeJs(r.client_name)}')" style="background: white; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 6px;">
+                    <button class="tv3-btn-deny" onclick="denyTrafficRequest(${r.id}, '${escapeJs(r.client_name)}')">
                         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
                         Deny
                     </button>
@@ -359,15 +538,10 @@ function updateRequestStats() {
     document.getElementById('reqAcceptedCount').textContent = accepted;
     document.getElementById('reqDeniedCount').textContent = denied;
     document.getElementById('reqTotalCount').textContent = allTrafficRequests.length;
-    document.getElementById('reqBadgePending').textContent = pending;
 }
 
 function setRequestFilter(filter) {
     currentRequestFilter = filter;
-    ['all', 'pending', 'accepted', 'denied'].forEach(f => {
-        const btn = document.getElementById('reqFilterBtn-' + f);
-        if (btn) btn.classList.toggle('active', f === filter);
-    });
     filterRequests();
 }
 
@@ -391,7 +565,7 @@ function filterRequests() {
 function renderAllRequests(requests) {
     const tbody = document.getElementById('requestsTableBody');
     if (!requests.length) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#8b8fa3; padding:40px;">No requests found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="tv3-empty">No requests found</td></tr>';
         document.getElementById('requestsCaseCount').textContent = '0 requests';
         return;
     }
@@ -399,47 +573,42 @@ function renderAllRequests(requests) {
     tbody.innerHTML = requests.map(r => {
         const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
         const courtDate = fmtDate(r.court_date);
-        const citationDate = fmtDate(r.citation_issued_date);
-        const responded = fmtDate(r.responded_at);
+        const created = fmtDate(r.created_at);
 
-        const statusBadge = r.status === 'pending'
-            ? '<span class="stat-badge" style="background:#fef3c7;color:#92400e;">Pending</span>'
-            : r.status === 'accepted'
-            ? '<span class="stat-badge" style="background:#d1fae5;color:#065f46;">Accepted</span>'
-            : '<span class="stat-badge" style="background:#fee2e2;color:#991b1b;">Denied</span>';
+        const statusClass = r.status === 'pending' ? 'pending'
+            : r.status === 'accepted' ? 'accepted' : 'denied';
+        const statusBadge = `<span class="tv3-badge ${statusClass}">${r.status}</span>`;
 
         const actions = r.status === 'pending' ? `
-            <div style="display:flex; gap:4px;">
-                <button onclick="acceptTrafficRequest(${r.id})" class="ink-icon-btn" title="Accept" style="color:#059669; border:1px solid #d1fae5; border-radius:6px; padding:4px 8px;">
+            <div style="display:flex; gap:4px; justify-content:center;">
+                <button class="tv3-btn-accept" onclick="acceptTrafficRequest(${r.id})" title="Accept">
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
                 </button>
-                <button onclick="denyTrafficRequest(${r.id}, '${escapeJs(r.client_name)}')" class="ink-icon-btn" title="Deny" style="color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:4px 8px;">
+                <button class="tv3-btn-deny" onclick="denyTrafficRequest(${r.id}, '${escapeJs(r.client_name)}')" title="Deny">
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-        ` : '<span style="color:#c4c7d0;">—</span>';
+        ` : '<span class="tv3-dim">\u2014</span>';
 
         const noteText = r.status === 'denied' && r.deny_reason
             ? '<span style="color:#dc2626;">' + escapeHtml(r.deny_reason) + '</span>'
-            : (r.note ? escapeHtml(r.note) : '<span style="color:#c4c7d0;">—</span>');
+            : (r.note ? escapeHtml(r.note) : '<span class="tv3-dim">\u2014</span>');
 
-        const created = fmtDate(r.created_at);
-
-        const ov = 'white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+        const ov = 'white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;';
         const reqName = (r.referral_source || r.requester_name || '').replace(/\s*\(.*?\)\s*$/, '');
         return `
             <tr>
-                <td style="${ov}" title="${escapeHtml(reqName)}">${escapeHtml(reqName || '—')}</td>
-                <td style="font-size:12px;">${created || '—'}</td>
-                <td style="font-weight:600; color:#1a1a2e; ${ov}" title="${escapeHtml(r.client_name)}">${escapeHtml(r.client_name)}</td>
-                <td style="font-size:12px; ${ov}">${escapeHtml(r.client_phone || '—')}</td>
-                <td style="font-size:11px; ${ov}" title="${escapeHtml(r.client_email || '')}">${escapeHtml(r.client_email || '—')}</td>
-                <td style="${ov}" title="${escapeHtml(r.court || '')}">${escapeHtml(r.court || '—')}</td>
-                <td style="${ov}" title="${escapeHtml(r.charge || '')}">${escapeHtml(r.charge || '—')}</td>
-                <td style="font-family:monospace; font-size:11px; ${ov}">${escapeHtml(r.case_number || '—')}</td>
-                <td style="font-size:12px;">${courtDate || '—'}</td>
-                <td>${statusBadge}${r.status === 'pending' ? '<div style="margin-top:4px;">' + actions + '</div>' : ''}</td>
-                <td style="font-size:11px; color:#5c5f73; ${ov}" title="${escapeHtml(r.note || r.deny_reason || '')}">${noteText}</td>
+                <td style="${ov}" title="${escapeHtml(reqName)}">${escapeHtml(reqName || '\u2014')}</td>
+                <td style="font-size:12px;">${created || '\u2014'}</td>
+                <td style="font-weight:600;">${escapeHtml(r.client_name)}</td>
+                <td style="font-size:12px;">${escapeHtml(r.client_phone || '\u2014')}</td>
+                <td style="${ov}" title="${escapeHtml(r.court || '')}">${escapeHtml(r.court || '\u2014')}</td>
+                <td style="${ov}" title="${escapeHtml(r.charge || '')}">${escapeHtml(r.charge || '\u2014')}</td>
+                <td style="font-family:monospace; font-size:11px;">${escapeHtml(r.case_number || '\u2014')}</td>
+                <td style="font-size:12px;">${courtDate || '\u2014'}</td>
+                <td style="text-align:center;">${statusBadge}</td>
+                <td style="font-size:11px; ${ov}" title="${escapeHtml(r.note || r.deny_reason || '')}">${noteText}</td>
+                <td style="text-align:center;">${actions}</td>
             </tr>
         `;
     }).join('');
@@ -483,469 +652,8 @@ async function denyTrafficRequest(id, clientName) {
 }
 
 // ============================================
-// Traffic Cases Functions
+// Traffic Case CRUD
 // ============================================
-
-async function loadTrafficCases() {
-    try {
-        const result = await apiCall('api/traffic.php');
-        if (result.cases) {
-            trafficCasesData = result.cases;
-            updateTrafficStatusCounts();
-            filterTrafficCases();
-            updateTrafficStats(trafficCasesData);
-            populateTrafficFilters();
-            if (typeof renderSidebarContent === 'function') {
-                renderSidebarContent(currentSidebarTab || 'all');
-            }
-            if (currentTrafficSubTab === 'commission') {
-                updateCommissionStats();
-                filterCommTraffic();
-            }
-        }
-    } catch (err) {
-        console.error('Error loading traffic cases:', err);
-    }
-}
-
-function populateTrafficFilters() {
-    const courts = [...new Set(trafficCasesData.map(c => c.court).filter(Boolean))].sort();
-    const courtSelect = document.getElementById('trafficCourtFilter');
-    if (courtSelect) {
-        courtSelect.innerHTML = '<option value="">All Courts</option>' +
-            courts.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-    }
-
-    const referrals = [...new Set(trafficCasesData.map(c => c.referral_source).filter(Boolean))].sort();
-    const referralSelect = document.getElementById('trafficReferralFilter');
-    if (referralSelect) {
-        referralSelect.innerHTML = '<option value="">All Requesters</option>' +
-            referrals.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
-    }
-}
-
-function filterTrafficByDropdown() {
-    const court = document.getElementById('trafficCourtFilter')?.value || '';
-    const referral = document.getElementById('trafficReferralFilter')?.value || '';
-
-    if (court) {
-        currentTrafficFilter = { type: 'court', value: court };
-    } else if (referral) {
-        currentTrafficFilter = { type: 'referral', value: referral };
-    } else {
-        currentTrafficFilter = null;
-    }
-    filterTrafficCases();
-}
-
-function renderTrafficTable(cases) {
-    const tbody = document.getElementById('trafficTableBody');
-    if (!cases || cases.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#6b7280; padding: 40px;">No traffic cases</td></tr>';
-        document.getElementById('trafficCaseCount').textContent = '0 cases';
-        return;
-    }
-
-    tbody.innerHTML = cases.map(c => {
-        return `
-            <tr class="clickable-row" onclick="openTrafficModal(trafficCasesData.find(x => x.id == ${c.id}))" style="cursor:pointer;">
-                <td style="width:0;padding:0;border:none;"></td>
-                <td>${c.created_at ? formatDate(c.created_at) : '-'}</td>
-                <td>${escapeHtml(c.client_name)}</td>
-                <td style="font-family: monospace; font-size: 12px;">${escapeHtml(c.case_number || '-')}</td>
-                <td>${escapeHtml(c.court || '-')}</td>
-                <td>${escapeHtml(c.charge || '-')}</td>
-                <td>${c.court_date ? formatDate(c.court_date) : '-'}</td>
-                <td>${c.noa_sent_date || '-'}</td>
-                <td style="text-align:center;">${c.discovery == 1
-                    ? '<span class="ink-badge" style="background:#d1fae5;color:#059669;">Received</span>'
-                    : ''
-                }</td>
-                <td>${c.status === 'resolved'
-                    ? '<span class="ink-badge" style="background:#d1fae5;color:#059669;">Resolved</span>'
-                    : '<span class="ink-badge" style="background:#dbeafe;color:#1d4ed8;">Active</span>'
-                }</td>
-                <td>${escapeHtml(c.referral_source || '-')}</td>
-                <td style="text-align: center;" onclick="event.stopPropagation();">
-                    <div style="display:flex; gap:4px; justify-content:center;">
-                        <button class="ink-icon-btn" onclick="downloadTrafficCasePDF(${c.id})" title="Download PDF" style="color:#3b82f6;">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        </button>
-                        <button class="ink-icon-btn ink-icon-btn-danger" onclick="deleteTrafficCase(${c.id})" title="Delete">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    document.getElementById('trafficCaseCount').textContent = cases.length + ' cases';
-}
-
-function downloadTrafficCasePDF(caseId) {
-    const c = trafficCasesData.find(x => x.id == caseId);
-    if (!c) return;
-
-    if (!window.jspdf) {
-        alert('PDF library is still loading. Please try again.');
-        return;
-    }
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    let y = 20;
-
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Traffic Case Report', 105, y, { align: 'center' });
-    y += 12;
-
-    doc.setDrawColor(200);
-    doc.setLineWidth(0.5);
-    doc.line(20, y, 190, y);
-    y += 10;
-
-    doc.setFontSize(11);
-    const addField = (label, value) => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.setFont('helvetica', 'bold');
-        doc.text(label + ':', 25, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(value || '-'), 80, y);
-        y += 8;
-    };
-
-    addField('Client Name', c.client_name);
-    addField('Phone', c.client_phone);
-    addField('Court', c.court);
-    addField('Court Date', c.court_date ? formatDate(c.court_date) : '-');
-    addField('Charge', c.charge);
-    addField('Case Number', c.case_number);
-    addField('Disposition', c.disposition);
-    addField('Status', c.status);
-    addField('Requester', c.referral_source);
-    addField('Discovery', c.discovery == 1 ? 'Received' : 'Not Received');
-    addField('NOA Sent', c.noa_sent_date || '-');
-    addField('Prosecutor Offer', c.prosecutor_offer);
-    addField('Commission', formatCurrency(getTrafficCommission(c.disposition)));
-    addField('Paid', c.paid == 1 ? 'Yes' : 'No');
-
-    if (c.note) {
-        y += 4;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Note:', 25, y);
-        y += 7;
-        doc.setFont('helvetica', 'normal');
-        const lines = doc.splitTextToSize(c.note, 155);
-        doc.text(lines, 25, y);
-        y += lines.length * 6;
-    }
-
-    y += 10;
-    doc.setDrawColor(200);
-    doc.line(20, y, 190, y);
-    y += 6;
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text('Generated on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 25, y);
-
-    const clientSlug = (c.client_name || 'case').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-    doc.save(`traffic_case_${clientSlug}.pdf`);
-}
-
-// Traffic Case File Attachments
-async function loadTrafficFiles(caseId) {
-    const container = document.getElementById('trafficFilesList');
-    container.innerHTML = '<div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;">Loading...</div>';
-
-    try {
-        const result = await apiCall('api/traffic_files.php?case_id=' + caseId);
-        if (result.files && result.files.length > 0) {
-            container.innerHTML = result.files.map(f => `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #f3f4f6;" data-file-id="${f.id}">
-                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
-                        <span style="font-size: 18px; flex-shrink: 0;">${getFileIcon(f.original_name)}</span>
-                        <div style="min-width: 0;">
-                            <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${f.original_name}">${f.original_name}</div>
-                            <div style="font-size: 11px; color: #9ca3af;">${formatFileSize(f.file_size)} &middot; ${formatDate(f.uploaded_at)}</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                        <button type="button" onclick="downloadTrafficFile(${f.id})" title="Download" style="background: none; border: 1px solid #d1d5db; border-radius: 6px; padding: 4px 8px; cursor: pointer; color: #2563eb; font-size: 14px;">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        </button>
-                        <button type="button" onclick="deleteTrafficFile(${f.id})" title="Delete" style="background: none; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 8px; cursor: pointer; color: #dc2626; font-size: 14px;">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            container.innerHTML = '<div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;">No files attached</div>';
-        }
-    } catch (e) {
-        container.innerHTML = '<div style="padding: 16px; text-align: center; color: #ef4444; font-size: 13px;">Failed to load files</div>';
-    }
-}
-
-async function uploadTrafficFile(input) {
-    if (!input.files || !input.files[0]) return;
-    const file = input.files[0];
-    const caseId = document.getElementById('trafficCaseId').value;
-
-    if (!caseId) {
-        showToast('Please save the case first before uploading files', 'error');
-        input.value = '';
-        return;
-    }
-
-    const maxSize = 20 * 1024 * 1024;
-    if (file.size > maxSize) {
-        showToast('File too large. Maximum size is 20MB', 'error');
-        input.value = '';
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('case_id', caseId);
-    formData.append('csrf_token', csrfToken);
-
-    try {
-        const response = await fetch('api/traffic_files.php', {
-            method: 'POST',
-            headers: { 'X-CSRF-Token': csrfToken },
-            body: formData
-        });
-        const result = await response.json();
-        if (result.csrf_token) csrfToken = result.csrf_token;
-
-        if (result.success) {
-            showToast('File uploaded', 'success');
-            loadTrafficFiles(caseId);
-        } else {
-            showToast(result.error || 'Upload failed', 'error');
-        }
-    } catch (e) {
-        showToast('Upload failed', 'error');
-    }
-
-    input.value = '';
-}
-
-function downloadTrafficFile(fileId) {
-    window.open('api/traffic_files.php?action=download&id=' + fileId, '_blank');
-}
-
-async function deleteTrafficFile(fileId) {
-    if (!confirm('Delete this file?')) return;
-    const caseId = document.getElementById('trafficCaseId').value;
-
-    const result = await apiCall('api/traffic_files.php', 'DELETE', { id: fileId });
-    if (result.success) {
-        showToast('File deleted', 'success');
-        loadTrafficFiles(caseId);
-    } else {
-        showToast(result.error || 'Failed to delete file', 'error');
-    }
-}
-
-async function deleteTrafficCase(caseId) {
-    if (!confirm('Are you sure you want to delete this traffic case?')) return;
-
-    const result = await apiCall('api/traffic.php', 'DELETE', { id: caseId });
-    if (result.success) {
-        showToast('Traffic case deleted', 'success');
-        loadTrafficCases();
-    } else {
-        showToast(result.error || 'Failed to delete', 'error');
-    }
-}
-
-function getTrafficCommission(disposition) {
-    if (disposition === 'dismissed') return 150;
-    if (disposition === 'amended') return 100;
-    return 0;
-}
-
-function updateTrafficStats(cases) {
-    const active = cases.filter(c => !c.disposition || c.disposition === 'pending').length;
-    const dismissed = cases.filter(c => c.disposition === 'dismissed').length;
-    const amended = cases.filter(c => c.disposition === 'amended').length;
-    const totalComm = cases.reduce((sum, c) => sum + getTrafficCommission(c.disposition), 0);
-
-    document.getElementById('trafficActive').textContent = active;
-    document.getElementById('trafficDismissed').textContent = dismissed;
-    document.getElementById('trafficAmended').textContent = amended;
-    document.getElementById('trafficCommission').textContent = formatCurrency(totalComm);
-}
-
-function filterTrafficCases() {
-    const search = (document.getElementById('trafficSearch').value || '').toLowerCase();
-    let filtered = trafficCasesData;
-
-    if (currentTrafficStatusFilter === 'active') {
-        filtered = filtered.filter(c => !c.disposition || c.disposition === 'pending');
-    } else if (currentTrafficStatusFilter === 'done') {
-        filtered = filtered.filter(c => c.disposition === 'dismissed' || c.disposition === 'amended');
-    }
-
-    if (currentTrafficFilter) {
-        filtered = filtered.filter(c => {
-            if (currentTrafficFilter.type === 'referral') {
-                return c.referral_source === currentTrafficFilter.value;
-            } else if (currentTrafficFilter.type === 'court') {
-                return c.court === currentTrafficFilter.value;
-            } else if (currentTrafficFilter.type === 'year') {
-                return c.court_date && c.court_date.startsWith(currentTrafficFilter.value);
-            }
-            return true;
-        });
-    }
-
-    if (search) {
-        filtered = filtered.filter(c =>
-            (c.client_name || '').toLowerCase().includes(search) ||
-            (c.case_number || '').toLowerCase().includes(search) ||
-            (c.court || '').toLowerCase().includes(search)
-        );
-    }
-
-    renderTrafficTable(filtered);
-}
-
-function setTrafficStatusFilter(status) {
-    currentTrafficStatusFilter = status;
-
-    ['all', 'active', 'done'].forEach(s => {
-        const btn = document.getElementById('trafficStatusBtn-' + s);
-        if (btn) {
-            btn.classList.remove('active');
-        }
-    });
-    const activeBtn = document.getElementById('trafficStatusBtn-' + status);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-
-    const labels = {
-        'all': 'All Cases',
-        'active': 'Active Cases',
-        'done': 'Done Cases'
-    };
-    document.getElementById('trafficFilterLabel').textContent = labels[status] || 'All Cases';
-
-    filterTrafficCases();
-}
-
-function updateTrafficStatusCounts() {
-    const allCount = trafficCasesData.length;
-    const activeCount = trafficCasesData.filter(c => !c.disposition || c.disposition === 'pending').length;
-    const doneCount = trafficCasesData.filter(c => c.disposition === 'dismissed' || c.disposition === 'amended').length;
-
-    document.getElementById('trafficCountAll').textContent = allCount;
-    document.getElementById('trafficCountActive').textContent = activeCount;
-    document.getElementById('trafficCountDone').textContent = doneCount;
-}
-
-function switchSidebarTab(tab) {
-    currentSidebarTab = tab;
-    currentTrafficFilter = null;
-
-    const statusLabels = { 'all': 'All Cases', 'active': 'Active Cases', 'done': 'Done Cases' };
-    document.getElementById('trafficFilterLabel').textContent = statusLabels[currentTrafficStatusFilter] || 'All Cases';
-
-    ['all', 'referral', 'court', 'year'].forEach(t => {
-        const btn = document.getElementById('sidebarTab-' + t);
-        if (btn) {
-            btn.classList.remove('active');
-        }
-    });
-    const activeBtn = document.getElementById('sidebarTab-' + tab);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-
-    renderSidebarContent(tab);
-    filterTrafficCases();
-}
-
-function renderSidebarContent(tab) {
-    const container = document.getElementById('sidebarContent');
-    let items = [];
-
-    if (tab === 'all') {
-        const active = trafficCasesData.filter(c => !c.disposition || c.disposition === 'pending').length;
-        const dismissed = trafficCasesData.filter(c => c.disposition === 'dismissed').length;
-        const amended = trafficCasesData.filter(c => c.disposition === 'amended').length;
-        const totalComm = trafficCasesData.reduce((sum, c) => sum + getTrafficCommission(c.disposition), 0);
-
-        container.innerHTML = `
-            <div style="padding: 12px;">
-                <div style="font-weight: 600; margin-bottom: 12px; color: #1a1a2e;">All Cases Summary</div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: #f7f9fc; border-radius: 6px;">
-                        <span style="color: #5c5f73;">Total</span>
-                        <span style="font-weight: 600;">${trafficCasesData.length}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: #dbeafe; border-radius: 6px;">
-                        <span style="color: #1d4ed8;">Active</span>
-                        <span style="font-weight: 600; color: #1d4ed8;">${active}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: #d1fae5; border-radius: 6px;">
-                        <span style="color: #059669;">Dismissed</span>
-                        <span style="font-weight: 600; color: #059669;">${dismissed}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: #fef3c7; border-radius: 6px;">
-                        <span style="color: #d97706;">Amended</span>
-                        <span style="font-weight: 600; color: #d97706;">${amended}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 10px; background: #1a1a2e; border-radius: 6px; margin-top: 4px;">
-                        <span style="color: #fff;">Commission</span>
-                        <span style="font-weight: 700; color: #4ade80;">${formatCurrency(totalComm)}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        return;
-    } else if (tab === 'referral') {
-        const referrals = {};
-        trafficCasesData.forEach(c => {
-            const ref = c.referral_source || 'Unknown';
-            referrals[ref] = (referrals[ref] || 0) + 1;
-        });
-        items = Object.entries(referrals).sort((a, b) => b[1] - a[1]);
-    } else if (tab === 'court') {
-        const courts = {};
-        trafficCasesData.forEach(c => {
-            const court = c.court || 'Unknown';
-            courts[court] = (courts[court] || 0) + 1;
-        });
-        items = Object.entries(courts).sort((a, b) => b[1] - a[1]);
-    } else if (tab === 'year') {
-        const years = {};
-        trafficCasesData.forEach(c => {
-            const year = c.court_date ? c.court_date.substring(0, 4) : 'Unknown';
-            years[year] = (years[year] || 0) + 1;
-        });
-        items = Object.entries(years).sort((a, b) => b[0].localeCompare(a[0]));
-    }
-
-    container.innerHTML = items.map(([name, count]) => `
-        <div onclick="applySidebarFilter('${tab}', '${escapeJs(name)}')"
-             style="padding: 10px 12px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0;"
-             onmouseover="this.style.background='#f7f9fc'" onmouseout="this.style.background=''">
-            <span style="font-size: 13px;">${escapeHtml(name)}</span>
-            <span style="font-size: 12px; background: #e5e7eb; padding: 2px 8px; border-radius: 10px;">${count}</span>
-        </div>
-    `).join('');
-}
-
-function applySidebarFilter(type, value) {
-    currentTrafficFilter = { type, value };
-    document.getElementById('trafficFilterLabel').textContent = value;
-    filterTrafficCases();
-}
 
 function openTrafficModal(caseData = null) {
     document.getElementById('trafficForm').reset();
@@ -1030,6 +738,24 @@ async function submitTrafficCase(event) {
     }
 }
 
+async function deleteTrafficCase(caseId) {
+    if (!confirm('Are you sure you want to delete this traffic case?')) return;
+
+    const result = await apiCall('api/traffic.php', 'DELETE', { id: caseId });
+    if (result.success) {
+        showToast('Traffic case deleted', 'success');
+        loadTrafficCases();
+    } else {
+        showToast(result.error || 'Failed to delete', 'error');
+    }
+}
+
+function getTrafficCommission(disposition) {
+    if (disposition === 'dismissed') return 150;
+    if (disposition === 'amended') return 100;
+    return 0;
+}
+
 // Sort Traffic Cases
 function sortTrafficCases(column) {
     if (trafficSortColumn === column) {
@@ -1038,13 +764,6 @@ function sortTrafficCases(column) {
         trafficSortColumn = column;
         trafficSortDir = 'asc';
     }
-
-    document.querySelectorAll('#trafficTable th.sortable').forEach(th => {
-        th.classList.remove('asc', 'desc');
-        if (th.dataset.sort === column) {
-            th.classList.add(trafficSortDir);
-        }
-    });
 
     trafficCasesData.sort((a, b) => {
         let valA = a[column];
@@ -1070,4 +789,178 @@ function sortTrafficCases(column) {
     });
 
     filterTrafficCases();
+}
+
+// ============================================
+// PDF Generation
+// ============================================
+
+function downloadTrafficCasePDF(caseId) {
+    const c = trafficCasesData.find(x => x.id == caseId);
+    if (!c) return;
+
+    if (!window.jspdf) {
+        alert('PDF library is still loading. Please try again.');
+        return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Traffic Case Report', 105, y, { align: 'center' });
+    y += 12;
+
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.line(20, y, 190, y);
+    y += 10;
+
+    doc.setFontSize(11);
+    const addField = (label, value) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.text(label + ':', 25, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(value || '-'), 80, y);
+        y += 8;
+    };
+
+    addField('Client Name', c.client_name);
+    addField('Phone', c.client_phone);
+    addField('Court', c.court);
+    addField('Court Date', c.court_date ? formatDate(c.court_date) : '-');
+    addField('Charge', c.charge);
+    addField('Case Number', c.case_number);
+    addField('Disposition', c.disposition);
+    addField('Status', c.status);
+    addField('Requester', c.referral_source);
+    addField('Discovery', c.discovery == 1 ? 'Received' : 'Not Received');
+    addField('NOA Sent', c.noa_sent_date || '-');
+    addField('Prosecutor Offer', c.prosecutor_offer);
+    addField('Commission', formatCurrency(getTrafficCommission(c.disposition)));
+    addField('Paid', c.paid == 1 ? 'Yes' : 'No');
+
+    if (c.note) {
+        y += 4;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Note:', 25, y);
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        const lines = doc.splitTextToSize(c.note, 155);
+        doc.text(lines, 25, y);
+        y += lines.length * 6;
+    }
+
+    y += 10;
+    doc.setDrawColor(200);
+    doc.line(20, y, 190, y);
+    y += 6;
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Generated on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 25, y);
+
+    const clientSlug = (c.client_name || 'case').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+    doc.save(`traffic_case_${clientSlug}.pdf`);
+}
+
+// ============================================
+// File Attachments
+// ============================================
+
+async function loadTrafficFiles(caseId) {
+    const container = document.getElementById('trafficFilesList');
+    container.innerHTML = '<div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;">Loading...</div>';
+
+    try {
+        const result = await apiCall('api/traffic_files.php?case_id=' + caseId);
+        if (result.files && result.files.length > 0) {
+            container.innerHTML = result.files.map(f => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #f3f4f6;" data-file-id="${f.id}">
+                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                        <span style="font-size: 18px; flex-shrink: 0;">${getFileIcon(f.original_name)}</span>
+                        <div style="min-width: 0;">
+                            <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${f.original_name}">${f.original_name}</div>
+                            <div style="font-size: 11px; color: #9ca3af;">${formatFileSize(f.file_size)} &middot; ${formatDate(f.uploaded_at)}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        <button type="button" class="tv3-icon-btn" onclick="downloadTrafficFile(${f.id})" title="Download">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </button>
+                        <button type="button" class="tv3-icon-btn danger" onclick="deleteTrafficFile(${f.id})" title="Delete">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;">No files attached</div>';
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="padding: 16px; text-align: center; color: #ef4444; font-size: 13px;">Failed to load files</div>';
+    }
+}
+
+async function uploadTrafficFile(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const caseId = document.getElementById('trafficCaseId').value;
+
+    if (!caseId) {
+        showToast('Please save the case first before uploading files', 'error');
+        input.value = '';
+        return;
+    }
+
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showToast('File too large. Maximum size is 20MB', 'error');
+        input.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('case_id', caseId);
+    formData.append('csrf_token', csrfToken);
+
+    try {
+        const response = await fetch('api/traffic_files.php', {
+            method: 'POST',
+            headers: { 'X-CSRF-Token': csrfToken },
+            body: formData
+        });
+        const result = await response.json();
+        if (result.csrf_token) csrfToken = result.csrf_token;
+
+        if (result.success) {
+            showToast('File uploaded', 'success');
+            loadTrafficFiles(caseId);
+        } else {
+            showToast(result.error || 'Upload failed', 'error');
+        }
+    } catch (e) {
+        showToast('Upload failed', 'error');
+    }
+
+    input.value = '';
+}
+
+function downloadTrafficFile(fileId) {
+    window.open('api/traffic_files.php?action=download&id=' + fileId, '_blank');
+}
+
+async function deleteTrafficFile(fileId) {
+    if (!confirm('Delete this file?')) return;
+    const caseId = document.getElementById('trafficCaseId').value;
+
+    const result = await apiCall('api/traffic_files.php', 'DELETE', { id: fileId });
+    if (result.success) {
+        showToast('File deleted', 'success');
+        loadTrafficFiles(caseId);
+    } else {
+        showToast(result.error || 'Failed to delete file', 'error');
+    }
 }

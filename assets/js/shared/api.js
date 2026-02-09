@@ -25,7 +25,15 @@ async function apiCall(url, options = {}) {
     };
 
     const response = await fetch(url, mergedOptions);
-    const data = await response.json();
+    const text = await response.text();
+
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        console.error('Invalid JSON response:', text.substring(0, 500));
+        throw new Error('Server returned invalid response. Check PHP error logs.');
+    }
 
     // Update CSRF token if returned
     if (data.csrf_token) {

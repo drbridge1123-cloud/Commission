@@ -263,7 +263,7 @@ function showAddForm() {
     document.getElementById('caseModal').classList.add('show');
 }
 
-function closeModal() {
+function closeCaseModal() {
     document.getElementById('caseModal').classList.remove('show');
 }
 
@@ -470,7 +470,7 @@ document.getElementById('caseForm').addEventListener('submit', async (e) => {
         });
 
         if (result.success) {
-            closeModal();
+            closeCaseModal();
             loadCases();
         } else {
             alert(result.error || 'Error saving case');

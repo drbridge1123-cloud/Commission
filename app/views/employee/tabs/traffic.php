@@ -77,15 +77,15 @@
                             <table class="excel-table" style="width: 100%;">
                                 <thead>
                                     <tr>
-                                        <th><div class="th-content">Client Name</div></th>
-                                        <th><div class="th-content">Court</div></th>
-                                        <th><div class="th-content">Court Date</div></th>
-                                        <th><div class="th-content">Charge</div></th>
-                                        <th><div class="th-content">Case #</div></th>
-                                        <th><div class="th-content">Offer</div></th>
-                                        <th><div class="th-content">Disposition</div></th>
-                                        <th><div class="th-content">Referral</div></th>
-                                        <th style="text-align: right;"><div class="th-content" style="justify-content: flex-end;">Commission</div></th>
+                                        <th data-sort="text"><div class="th-content">Client Name</div></th>
+                                        <th data-sort="text"><div class="th-content">Court</div></th>
+                                        <th data-sort="date"><div class="th-content">Court Date</div></th>
+                                        <th data-sort="text"><div class="th-content">Charge</div></th>
+                                        <th data-sort="text"><div class="th-content">Case #</div></th>
+                                        <th data-sort="text"><div class="th-content">Offer</div></th>
+                                        <th data-sort="text"><div class="th-content">Disposition</div></th>
+                                        <th data-sort="text"><div class="th-content">Referral</div></th>
+                                        <th style="text-align: right;" data-sort="number"><div class="th-content" style="justify-content: flex-end;">Commission</div></th>
                                         <th style="text-align: center;"><div class="th-content" style="justify-content: center;">Actions</div></th>
                                     </tr>
                                 </thead>

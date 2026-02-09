@@ -7,7 +7,14 @@ async function loadPendingCases() {
         const data = await apiCall('api/cases.php?status=unpaid');
         pendingCases = data.cases || [];
         renderPendingCases();
-        document.getElementById('pendingBadge').textContent = pendingCases.length;
+        const badge = document.getElementById('pendingBadge');
+        badge.textContent = pendingCases.length;
+        badge.style.display = pendingCases.length > 0 ? '' : 'none';
+        const pillCount = document.getElementById('acPillPendingCount');
+        if (pillCount) {
+            pillCount.textContent = pendingCases.length;
+            pillCount.style.display = pendingCases.length > 0 ? '' : 'none';
+        }
     } catch (err) {
         console.error('Error:', err);
     }
@@ -121,7 +128,7 @@ function renderPendingCases() {
     const footerTotal = document.getElementById('pendingFooterTotal');
 
     if (pendingCases.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" style="padding: 32px 16px; text-align: center;" class="text-secondary">No pending cases</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" style="padding: 32px 16px; text-align: center;" class="text-secondary">No pending cases</td></tr>`;
         if (footerInfo) footerInfo.textContent = 'Showing 0 cases';
         if (footerTotal) footerTotal.textContent = formatCurrency(0);
         return;
@@ -138,12 +145,16 @@ function renderPendingCases() {
             <td style="font-size:12px;padding:6px;">${c.month}</td>
             <td style="font-weight:600;font-size:12px;padding:6px;">${c.case_number}</td>
             <td style="font-size:12px;padding:6px;">${c.client_name}</td>
+            <td style="font-size:12px;padding:6px;">${c.resolution_type || '-'}</td>
             <td style="text-align:right;font-weight:600;font-size:12px;padding:6px;">${formatCurrency(c.settled)}</td>
             <td style="text-align:right;font-size:12px;padding:6px;">${formatCurrency(c.presuit_offer || 0)}</td>
             <td style="text-align:right;font-size:12px;padding:6px;">${formatCurrency(c.difference || 0)}</td>
             <td style="text-align:right;font-size:12px;padding:6px;">${formatCurrency(c.legal_fee || 0)}</td>
             <td style="text-align:right;font-size:12px;padding:6px;">${formatCurrency(c.discounted_legal_fee)}</td>
             <td style="text-align:right;font-weight:700;color:#059669;font-size:12px;padding:6px;">${formatCurrency(c.commission)}</td>
+            <td style="text-align:center;padding:6px;" onclick="event.stopPropagation()">
+                <span onclick="togglePendingCheck(${c.id})" style="font-size:11px;cursor:pointer;font-weight:600;color:${c.check_received == 1 ? '#059669' : '#d1d5db'};" title="Click to toggle">${c.check_received == 1 ? 'Received' : 'Pending'}</span>
+            </td>
             <td style="text-align:center;padding:6px;" onclick="event.stopPropagation()">
                 <div class="action-group center">
                     <button class="act-btn approve" onclick="approveCase(${c.id})" title="Approve">Approve</button>
@@ -175,11 +186,27 @@ async function processCase(id, action) {
 
         if (result.success) {
             loadPendingCases();
-            loadStats();
+            loadAllCases();
+            if (typeof loadStats === 'function') loadStats();
+            if (typeof loadOverviewData === 'function') loadOverviewData();
         }
     } catch (err) {
         console.error('Error:', err);
         alert(err.message || 'Error processing case');
+    }
+}
+
+async function togglePendingCheck(caseId) {
+    const c = pendingCases.find(x => x.id == caseId);
+    if (!c) return;
+    const newVal = c.check_received == 1 ? 0 : 1;
+    const result = await apiCall('api/cases.php', {
+        method: 'PUT',
+        body: JSON.stringify({ id: parseInt(caseId), check_received: newVal })
+    });
+    if (result.success) {
+        c.check_received = newVal;
+        renderPendingCases();
     }
 }
 
@@ -198,7 +225,9 @@ async function deletePendingCase(id) {
 
         if (result.success) {
             loadPendingCases();
-            loadStats();
+            loadAllCases();
+            if (typeof loadStats === 'function') loadStats();
+            if (typeof loadOverviewData === 'function') loadOverviewData();
             alert('Case deleted successfully');
         } else {
             alert(result.error || 'Error deleting case');
@@ -221,7 +250,8 @@ async function deleteFromEditModal() {
             closeEditModal();
             loadPendingCases();
             loadAllCases();
-            loadStats();
+            if (typeof loadStats === 'function') loadStats();
+            if (typeof loadOverviewData === 'function') loadOverviewData();
             alert('Case deleted successfully');
         } else {
             alert(result.error || 'Error deleting case');
@@ -251,7 +281,9 @@ async function bulkAction(action) {
 
         if (result.success) {
             loadPendingCases();
-            loadStats();
+            loadAllCases();
+            if (typeof loadStats === 'function') loadStats();
+            if (typeof loadOverviewData === 'function') loadOverviewData();
         }
     } catch (err) {
         console.error('Error:', err);

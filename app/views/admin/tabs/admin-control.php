@@ -9,16 +9,18 @@
                 <table class="tbl">
                     <thead>
                         <tr>
-                            <th>Username</th>
-                            <th>Display Name</th>
-                            <th class="c">Role</th>
-                            <th class="r">Commission Rate</th>
-                            <th class="c">Traffic</th>
+                            <th data-sort="text">Username</th>
+                            <th data-sort="text">Display Name</th>
+                            <th class="c" data-sort="text">Role</th>
+                            <th class="c" data-sort="text">Attorney</th>
+                            <th class="c" data-sort="text">Manager</th>
+                            <th class="r" data-sort="number">Commission Rate</th>
+                            <th class="c" data-sort="text">Traffic</th>
                             <th class="c">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersTableBody">
-                        <tr><td colspan="6" style="padding: 24px; text-align: center; color: #8b8fa3; font-size: 12px;">Loading users...</td></tr>
+                        <tr><td colspan="8" style="padding: 24px; text-align: center; color: #8b8fa3; font-size: 12px;">Loading users...</td></tr>
                     </tbody>
                 </table>
             </div>

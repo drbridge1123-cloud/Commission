@@ -60,6 +60,50 @@ if ($method === 'GET') {
 
         jsonResponse(['employees' => $employees, 'year' => $year, 'csrf_token' => generateCSRFToken()]);
 
+    } else if ($action === 'team') {
+        // Manager or Admin: get goals for managed employees
+        if (!isManager() && !isAdmin()) {
+            jsonResponse(['error' => 'Access denied'], 403);
+        }
+
+        $managerId = isAdmin() ? intval($_GET['manager_id'] ?? $user['id']) : $user['id'];
+        $managedIds = getManagedEmployeeIds($managerId);
+
+        if (empty($managedIds)) {
+            jsonResponse(['employees' => [], 'year' => $year, 'csrf_token' => generateCSRFToken()]);
+        }
+
+        $placeholders = implode(',', array_fill(0, count($managedIds), '?'));
+        $stmt = $pdo->prepare("
+            SELECT
+                u.id, u.display_name, u.username,
+                COALESCE(g.target_cases, 50) as target_cases,
+                COALESCE(g.target_legal_fee, 500000.00) as target_legal_fee,
+                g.notes as goal_notes,
+                COUNT(c.id) as actual_cases,
+                COALESCE(SUM(c.discounted_legal_fee), 0) as actual_legal_fee
+            FROM users u
+            LEFT JOIN employee_goals g ON u.id = g.user_id AND g.year = ?
+            LEFT JOIN cases c ON u.id = c.user_id AND c.deleted_at IS NULL AND YEAR(c.intake_date) = ?
+            WHERE u.id IN ({$placeholders}) AND u.is_active = 1
+            GROUP BY u.id
+            ORDER BY u.display_name
+        ");
+        $params = array_merge([$year, $year], $managedIds);
+        $stmt->execute($params);
+        $employees = $stmt->fetchAll();
+
+        foreach ($employees as &$emp) {
+            $emp['cases_percent'] = $emp['target_cases'] > 0
+                ? round(($emp['actual_cases'] / $emp['target_cases']) * 100, 1)
+                : 0;
+            $emp['legal_fee_percent'] = $emp['target_legal_fee'] > 0
+                ? round(($emp['actual_legal_fee'] / $emp['target_legal_fee']) * 100, 1)
+                : 0;
+        }
+
+        jsonResponse(['employees' => $employees, 'year' => $year, 'csrf_token' => generateCSRFToken()]);
+
     } else if ($action === 'month_cases') {
         // Fetch individual cases for a specific month
         $targetUserId = isAdmin() ? intval($_GET['user_id'] ?? $user['id']) : $user['id'];
