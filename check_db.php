@@ -21,7 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if ($action === 'backup') {
             try {
-                $tables = ['users', 'cases', 'messages', 'audit_logs'];
+                // Get ALL tables dynamically
+                $tableStmt = $pdo->query("SHOW TABLES");
+                $tables = $tableStmt->fetchAll(PDO::FETCH_COLUMN);
                 $backup = "-- Commission DB Backup\n";
                 $backup .= "-- Generated: " . date('Y-m-d H:i:s') . "\n";
                 $backup .= "-- Database: " . DB_NAME . "\n\n";
@@ -116,7 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         // Optimize tables
         if ($action === 'optimize_tables') {
             try {
-                $tables = ['users', 'cases', 'messages', 'audit_logs'];
+                $tableStmt = $pdo->query("SHOW TABLES");
+                $tables = $tableStmt->fetchAll(PDO::FETCH_COLUMN);
                 foreach ($tables as $table) {
                     $pdo->exec("OPTIMIZE TABLE `$table`");
                 }
