@@ -77,12 +77,18 @@ if ($method === 'POST') {
         }
     }
 
+    // Auto-resolve when disposition is dismissed or amended
+    if (in_array($data['disposition'] ?? '', ['dismissed', 'amended'])) {
+        $data['status'] = 'resolved';
+    }
+
     $stmt = $pdo->prepare("
-        INSERT INTO traffic_cases (user_id, client_name, client_phone, court, court_date, charge, case_number, prosecutor_offer, disposition, commission, discovery, status, note, referral_source, paid)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO traffic_cases (user_id, client_name, client_phone, court, court_date, charge, case_number, prosecutor_offer, disposition, commission, discovery, status, resolved_at, note, referral_source, paid)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $courtDate = !empty($data['court_date']) ? $data['court_date'] : null;
+    $resolvedAtPost = ($data['status'] ?? 'active') === 'resolved' ? date('Y-m-d H:i:s') : null;
 
     $stmt->execute([
         $user['id'],
@@ -97,6 +103,7 @@ if ($method === 'POST') {
         $commission,
         isset($data['discovery']) ? ($data['discovery'] ? 1 : 0) : 0,
         sanitizeString($data['status'] ?? 'active', 20),
+        $resolvedAtPost,
         sanitizeString($data['note'] ?? '', 2000),
         sanitizeString($data['referral_source'] ?? '', 100),
         isset($data['paid']) ? ($data['paid'] ? 1 : 0) : 0
@@ -111,6 +118,21 @@ if ($method === 'PUT') {
 
     if (!$data || !isset($data['id'])) {
         jsonResponse(['error' => 'Invalid data'], 400);
+    }
+
+    // Mark Paid action (admin only) - supports single id or bulk ids[]
+    if (isset($data['action']) && $data['action'] === 'mark_paid') {
+        if (!isAdmin()) {
+            jsonResponse(['error' => 'Admin only'], 403);
+        }
+        $paid = isset($data['paid']) ? ($data['paid'] ? 1 : 0) : 1;
+        $paidAt = $paid ? date('Y-m-d H:i:s') : null;
+        $ids = isset($data['ids']) ? $data['ids'] : [$data['id']];
+        $stmt = $pdo->prepare("UPDATE traffic_cases SET paid = ?, paid_at = CASE WHEN ? = 1 AND paid_at IS NULL THEN ? WHEN ? = 0 THEN NULL ELSE paid_at END WHERE id = ?");
+        foreach ($ids as $caseId) {
+            $stmt->execute([$paid, $paid, $paidAt, $paid, $caseId]);
+        }
+        jsonResponse(['success' => true]);
     }
 
     // Verify ownership
@@ -132,6 +154,11 @@ if ($method === 'PUT') {
         }
     }
 
+    // Auto-resolve when disposition is dismissed or amended
+    if (in_array($data['disposition'] ?? '', ['dismissed', 'amended'])) {
+        $data['status'] = 'resolved';
+    }
+
     // Set resolved_at if status changed to resolved
     $resolvedAt = null;
     if (isset($data['status']) && $data['status'] === 'resolved') {
@@ -146,12 +173,16 @@ if ($method === 'PUT') {
     $noaSentDate = isset($data['noa_sent_date']) && !empty($data['noa_sent_date']) ? $data['noa_sent_date'] : null;
     $citationIssuedDate = isset($data['citation_issued_date']) && !empty($data['citation_issued_date']) ? $data['citation_issued_date'] : null;
 
+    $paidVal = isset($data['paid']) ? ($data['paid'] ? 1 : 0) : 0;
+
     $stmt = $pdo->prepare("
         UPDATE traffic_cases
         SET client_name = ?, client_phone = ?, court = ?, court_date = ?, charge = ?,
             case_number = ?, prosecutor_offer = ?, disposition = ?, commission = ?,
             discovery = ?, status = ?, note = ?, resolved_at = COALESCE(?, resolved_at),
-            referral_source = ?, paid = ?, noa_sent_date = ?, citation_issued_date = ?
+            referral_source = ?, paid = ?,
+            paid_at = CASE WHEN ? = 1 AND paid_at IS NULL THEN NOW() WHEN ? = 0 THEN NULL ELSE paid_at END,
+            noa_sent_date = ?, citation_issued_date = ?
         WHERE id = ?
     ");
 
@@ -170,7 +201,9 @@ if ($method === 'PUT') {
         sanitizeString($data['note'] ?? '', 2000),
         $resolvedAt,
         sanitizeString($data['referral_source'] ?? '', 100),
-        isset($data['paid']) ? ($data['paid'] ? 1 : 0) : 0,
+        $paidVal,
+        $paidVal,
+        $paidVal,
         $noaSentDate,
         $citationIssuedDate,
         $data['id']

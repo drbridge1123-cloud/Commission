@@ -1,0 +1,405 @@
+/* ===============================================
+   Traffic Edit Modal — Ink Minimal Accordion
+   Scoped to #trafficModal .tem-* only
+   =============================================== */
+
+/* Overlay */
+#trafficModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+#trafficModal.hidden {
+    display: none !important;
+}
+
+/* Modal Shell */
+.tem-modal {
+    width: 100%;
+    max-width: 620px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    overflow: hidden;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.tem-header {
+    background: #252830;
+    padding: 14px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.tem-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.tem-accent-bar {
+    width: 3px;
+    height: 16px;
+    background: #3b82f6;
+    border-radius: 2px;
+}
+.tem-header-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+.tem-close {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+.tem-close:hover {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+}
+
+/* Scrollable Body */
+.tem-body {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Accordion Section */
+.tem-section {
+    border-bottom: 1px solid #e2e4e8;
+}
+.tem-section-trigger {
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+.tem-section-trigger:hover {
+    background: #fafbfc;
+}
+.tem-section-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tem-section-tag {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #3b82f6;
+    background: rgba(59,130,246,0.06);
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+.tem-section-count {
+    font-size: 10px;
+    color: #9ea3ad;
+}
+.tem-chevron {
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+.tem-section.open .tem-chevron {
+    transform: rotate(180deg);
+}
+.tem-section-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+.tem-section.open .tem-section-body {
+    max-height: 800px;
+}
+
+/* Field Grid */
+.tem-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+.tem-cell {
+    padding: 8px 22px 10px;
+    border-right: 1px solid #eef0f2;
+    border-bottom: 1px solid #eef0f2;
+}
+.tem-cell:nth-child(even) {
+    border-right: none;
+}
+.tem-cell.alt {
+    background: #fafbfc;
+}
+.tem-cell.full {
+    grid-column: 1 / -1;
+    border-right: none;
+}
+
+/* Labels */
+.tem-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #9ea3ad;
+    margin-bottom: 4px;
+}
+
+/* Inputs — underline only */
+.tem-input {
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    border-bottom: 1.5px solid #e2e4e8;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 0;
+    box-sizing: border-box;
+}
+.tem-input:focus {
+    border-bottom-color: #3b82f6;
+}
+.tem-input::placeholder {
+    color: transparent;
+}
+
+/* Select dropdown chevron */
+.tem-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ea3ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    padding-right: 16px;
+    cursor: pointer;
+}
+
+/* Textarea */
+.tem-textarea {
+    width: 100%;
+    padding: 8px 0;
+    border: none;
+    border-bottom: 1.5px solid #e2e4e8;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    outline: none;
+    resize: vertical;
+    min-height: 50px;
+    transition: border-color 0.2s;
+    border-radius: 0;
+    box-sizing: border-box;
+}
+.tem-textarea:focus {
+    border-bottom-color: #3b82f6;
+}
+
+/* Checkbox Row */
+.tem-checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #eef0f2;
+}
+.tem-checkbox-cell {
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tem-checkbox-cell:first-child {
+    border-right: 1px solid #eef0f2;
+}
+.tem-checkbox-cell input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #3b82f6;
+    cursor: pointer;
+}
+.tem-checkbox-cell label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #1a1d23;
+    cursor: pointer;
+}
+
+/* Commission Strip */
+.tem-commission-strip {
+    background: #252830;
+    padding: 12px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.tem-commission-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+}
+.tem-commission-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Attachments */
+.tem-attachments {
+    padding: 10px 22px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #eef0f2;
+}
+.tem-attach-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a1d23;
+}
+.tem-attach-muted {
+    color: #9ea3ad;
+    font-weight: 400;
+}
+.tem-btn-upload {
+    font-size: 11px;
+    font-weight: 600;
+    color: #3b82f6;
+    background: transparent;
+    border: 1px solid #3b82f6;
+    border-radius: 5px;
+    padding: 4px 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.15s;
+}
+.tem-btn-upload:hover {
+    background: rgba(59,130,246,0.06);
+}
+.tem-files-list {
+    max-height: 160px;
+    overflow-y: auto;
+}
+.tem-file-item {
+    padding: 6px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    border-top: 1px solid #eef0f2;
+}
+.tem-file-item:hover {
+    background: #fafbfc;
+}
+.tem-file-name {
+    color: #3b82f6;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+}
+.tem-file-name:hover {
+    text-decoration: underline;
+}
+.tem-file-meta {
+    font-size: 11px;
+    color: #9ea3ad;
+}
+.tem-file-delete {
+    color: #9ea3ad;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.tem-file-delete:hover {
+    color: #ef4444;
+    background: #fef2f2;
+}
+
+/* Footer */
+.tem-footer {
+    background: #fafbfc;
+    border-top: 1px solid #e2e4e8;
+    padding: 14px 22px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.tem-btn-cancel {
+    padding: 8px 16px;
+    border: 1px solid #e2e4e8;
+    background: transparent;
+    color: #5f6572;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    transition: background 0.15s;
+    margin-left: auto;
+}
+.tem-btn-cancel:hover {
+    background: #f0f1f3;
+}
+.tem-btn-save {
+    padding: 8px 20px;
+    background: #252830;
+    color: #fff;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    transition: background 0.15s;
+}
+.tem-btn-save:hover {
+    background: #1a1d23;
+}
+.tem-btn-delete {
+    padding: 8px 16px;
+    border: 1px solid #fecaca;
+    background: transparent;
+    color: #dc2626;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    transition: background 0.15s;
+}
+.tem-btn-delete:hover {
+    background: #fef2f2;
+}

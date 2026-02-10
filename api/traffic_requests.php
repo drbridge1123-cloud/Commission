@@ -291,9 +291,9 @@ if ($method === 'DELETE') {
         jsonResponse(['error' => 'Only admin can delete requests'], 403);
     }
 
-    // Verify request exists and belongs to this admin
-    $stmt = $pdo->prepare("SELECT * FROM traffic_requests WHERE id = ? AND requested_by = ?");
-    $stmt->execute([$data['id'], $user['id']]);
+    // Verify request exists
+    $stmt = $pdo->prepare("SELECT * FROM traffic_requests WHERE id = ?");
+    $stmt->execute([$data['id']]);
     $request = $stmt->fetch();
 
     if (!$request) {

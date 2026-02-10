@@ -36,6 +36,7 @@ $csrfToken = generateCSRFToken();
     <link rel="stylesheet" href="assets/css/steel-minimal.css?v=<?= filemtime('assets/css/steel-minimal.css') ?>">
     <link rel="stylesheet" href="assets/css/employee-inline.css?v=<?= filemtime('assets/css/employee-inline.css') ?>">
     <link rel="stylesheet" href="assets/css/manager-inline.css?v=<?= filemtime('assets/css/manager-inline.css') ?>">
+    <link rel="stylesheet" href="assets/css/traffic-v3.css?v=<?= filemtime('assets/css/traffic-v3.css') ?>">
 </head>
 <body class="steel-minimal">
     <!-- Sidebar -->
@@ -58,6 +59,10 @@ $csrfToken = generateCSRFToken();
             <!-- Case Management -->
             <div class="nav-group">
                 <div class="nav-group-title">Case Management</div>
+                <a class="nav-link" data-tab="attorney-progress">
+                    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    <span>Attorney Progress</span>
+                </a>
                 <a class="nav-link" data-tab="cases">
                     <svg viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span>My Cases</span>
@@ -125,6 +130,7 @@ $csrfToken = generateCSRFToken();
             <?php include 'app/views/employee/tabs/cases.php'; ?>
             <?php include 'app/views/employee/tabs/history.php'; ?>
             <?php include 'app/views/employee/tabs/reports.php'; ?>
+            <?php include 'app/views/manager/tabs/attorney-progress.php'; ?>
             <?php include 'app/views/manager/tabs/team-goals.php'; ?>
             <?php include 'app/views/employee/tabs/notifications.php'; ?>
         </div><!-- /page-content -->
@@ -139,6 +145,7 @@ $csrfToken = generateCSRFToken();
 
     <!-- Manager modals -->
     <?php include 'app/views/manager/modals/referral-form.php'; ?>
+    <?php include 'app/views/manager/modals/demand-request-form.php'; ?>
 
     <!-- Shared JS -->
     <script src="assets/js/shared/utils.js?v=<?= filemtime('assets/js/shared/utils.js') ?>"></script>
@@ -164,6 +171,7 @@ $csrfToken = generateCSRFToken();
     <script src="assets/js/manager/state.js?v=<?= filemtime('assets/js/manager/state.js') ?>"></script>
     <script src="assets/js/manager/referrals.js?v=<?= filemtime('assets/js/manager/referrals.js') ?>"></script>
     <script src="assets/js/manager/team-goals.js?v=<?= filemtime('assets/js/manager/team-goals.js') ?>"></script>
+    <script src="assets/js/manager/attorney-progress.js?v=<?= filemtime('assets/js/manager/attorney-progress.js') ?>"></script>
     <script src="assets/js/manager/init.js?v=<?= filemtime('assets/js/manager/init.js') ?>"></script>
 </body>
 </html>

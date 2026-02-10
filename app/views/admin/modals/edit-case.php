@@ -27,7 +27,7 @@
                             <div>
                                 <label class="m-label">Case Type</label>
                                 <select id="editCaseType" class="m-input">
-                                    <option value="Auto Accident">Auto Accident</option>
+                                    <option value="Auto">Auto</option>
                                     <option value="Pedestrian">Pedestrian</option>
                                     <option value="Motorcycle">Motorcycle</option>
                                     <option value="Bicycle">Bicycle</option>

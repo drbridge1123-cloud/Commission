@@ -33,13 +33,26 @@ function updateTV3Stats() {
     const active = adminTrafficAllCases.filter(c => c.status === 'active').length;
     const dismissed = adminTrafficAllCases.filter(c => c.disposition === 'dismissed').length;
     const amended = adminTrafficAllCases.filter(c => c.disposition === 'amended').length;
+    const unpaid = adminTrafficAllCases.filter(c => c.status === 'resolved' && c.paid != 1).length;
     const pendingReq = myTrafficRequests.filter(r => r.status === 'pending').length;
 
     const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setEl('tv3StatActive', active);
     setEl('tv3StatDismissed', dismissed);
     setEl('tv3StatAmended', amended);
+    setEl('tv3StatUnpaid', unpaid);
     setEl('tv3StatPendingReq', pendingReq);
+
+    // Unpaid count badge on pill
+    const unpaidBadge = document.getElementById('tv3UnpaidCount');
+    if (unpaidBadge) {
+        if (unpaid > 0) {
+            unpaidBadge.textContent = unpaid;
+            unpaidBadge.style.display = '';
+        } else {
+            unpaidBadge.style.display = 'none';
+        }
+    }
 
     // Request count badge on pill
     const reqBadge = document.getElementById('tv3ReqCount');
@@ -60,6 +73,18 @@ function updateTV3Stats() {
             navBadge.style.display = '';
         } else {
             navBadge.style.display = 'none';
+        }
+    }
+
+    // Pending request yellow banner
+    const banner = document.getElementById('tv3PendingBanner');
+    if (banner) {
+        if (pendingReq > 0) {
+            document.getElementById('tv3PendingBannerText').textContent =
+                `You have ${pendingReq} pending traffic request${pendingReq > 1 ? 's' : ''}`;
+            banner.style.display = 'flex';
+        } else {
+            banner.style.display = 'none';
         }
     }
 }
@@ -165,6 +190,8 @@ function applyTV3Filters() {
         filtered = filtered.filter(c => c.status === 'active');
     } else if (tv3PillTab === 'done') {
         filtered = filtered.filter(c => c.status === 'resolved');
+    } else if (tv3PillTab === 'unpaid') {
+        filtered = filtered.filter(c => c.status === 'resolved' && c.paid != 1);
     }
 
     // View + sub-filter
@@ -208,12 +235,23 @@ function renderTV3Cases() {
     const tbody = document.getElementById('tv3CasesBody');
     if (!tbody) return;
 
+    const isUnpaidTab = tv3PillTab === 'unpaid';
+    const checkAllTh = document.getElementById('tv3CheckAllTh');
+    if (checkAllTh) checkAllTh.style.display = isUnpaidTab ? '' : 'none';
+
+    // Reset bulk bar
+    const bulkBar = document.getElementById('tv3BulkBar');
+    if (bulkBar) bulkBar.style.display = 'none';
+    const checkAll = document.getElementById('tv3CheckAll');
+    if (checkAll) checkAll.checked = false;
+
     if (adminTrafficCases.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="tv3-empty">No traffic cases found</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${isUnpaidTab ? 13 : 12}" class="tv3-empty">No traffic cases found</td></tr>`;
         return;
     }
 
     tbody.innerHTML = adminTrafficCases.map(c => {
+        const issuedDate = c.citation_issued_date ? new Date(c.citation_issued_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '<span class="tv3-dim">-</span>';
         const courtDate = c.court_date ? new Date(c.court_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '<span class="tv3-dim">-</span>';
         const noaDate = c.noa_sent_date ? new Date(c.noa_sent_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '<span class="tv3-dim">-</span>';
         const discoveryIcon = c.discovery ? '<span style="color: var(--tv3-green); font-weight: 600;">✓</span>' : '<span class="tv3-dim">-</span>';
@@ -227,22 +265,38 @@ function renderTV3Cases() {
             dispBadge = '<span class="tv3-badge pending">Pending</span>';
         }
 
-        const statusBadge = c.status === 'active'
-            ? '<span class="tv3-badge active">Active</span>'
-            : '<span class="tv3-badge done">Done</span>';
+        let statusBadge;
+        if (c.status === 'active') {
+            statusBadge = '<span class="tv3-badge active">Active</span>';
+        } else if (c.status === 'resolved' && c.paid != 1) {
+            statusBadge = '<span class="tv3-badge done">Done</span><span class="tv3-badge" style="background:#92400e;margin-left:4px;">UNPAID</span>';
+        } else {
+            statusBadge = '<span class="tv3-badge done">Done</span>';
+        }
+
+        const markPaidBtn = (c.status === 'resolved' && c.paid != 1)
+            ? `<button onclick="event.stopPropagation(); markTrafficPaid(${c.id})" class="tv3-edit-btn" style="background:#059669;">Paid</button>`
+            : '';
+
+        const checkboxTd = isUnpaidTab
+            ? `<td class="c" onclick="event.stopPropagation();"><input type="checkbox" class="tv3-row-check" value="${c.id}" onchange="updateTV3BulkBar()"></td>`
+            : '';
 
         return `<tr onclick="editAdminTrafficCase(${c.id})">
+            ${checkboxTd}
             <td style="font-weight: 600;">${escapeHtml(c.client_name || '-')}</td>
             <td>${escapeHtml(c.court || '-')}</td>
-            <td>${courtDate}</td>
             <td>${escapeHtml(c.charge || '-')}</td>
+            <td>${issuedDate}</td>
             <td class="c">${noaDate}</td>
+            <td>${courtDate}</td>
             <td class="c">${discoveryIcon}</td>
             <td>${dispBadge}</td>
             <td class="c">${statusBadge}</td>
             <td style="color: var(--tv3-text-sec); font-size: 11px;">${escapeHtml(c.requester_name || '-')}</td>
-            <td class="c">
+            <td class="c" style="white-space:nowrap;">
                 <button onclick="event.stopPropagation(); editAdminTrafficCase(${c.id})" class="tv3-edit-btn">Edit</button>
+                ${markPaidBtn}
             </td>
         </tr>`;
     }).join('');
@@ -426,6 +480,7 @@ function editAdminTrafficCase(id) {
     document.getElementById('adminTrafficTicketIssuedDate').value = c.citation_issued_date || '';
     document.getElementById('adminTrafficNoaSentDate').value = c.noa_sent_date || '';
     document.getElementById('adminTrafficDiscovery').checked = c.discovery == 1;
+    document.getElementById('adminTrafficPaid').checked = c.paid == 1;
     document.getElementById('adminTrafficNote').value = c.note || '';
     document.getElementById('adminTrafficReferralSource').value = c.referral_source || '';
 
@@ -456,7 +511,7 @@ async function saveAdminTrafficCase() {
         discovery: document.getElementById('adminTrafficDiscovery').checked,
         note: document.getElementById('adminTrafficNote').value.trim(),
         referral_source: document.getElementById('adminTrafficReferralSource').value.trim(),
-        paid: false
+        paid: document.getElementById('adminTrafficPaid').checked
     };
 
     try {
@@ -475,6 +530,71 @@ async function saveAdminTrafficCase() {
     } catch (err) {
         console.error('Error:', err);
         alert(err.message || 'Error saving case');
+    }
+}
+
+async function markTrafficPaid(id) {
+    try {
+        const result = await apiCall('api/traffic.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, action: 'mark_paid', paid: true })
+        });
+
+        if (result.success) {
+            loadAdminTrafficCases();
+        } else {
+            alert(result.error || 'Error marking as paid');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert(err.message || 'Error marking as paid');
+    }
+}
+
+function toggleTV3CheckAll(masterCheckbox) {
+    document.querySelectorAll('.tv3-row-check').forEach(cb => {
+        cb.checked = masterCheckbox.checked;
+    });
+    updateTV3BulkBar();
+}
+
+function updateTV3BulkBar() {
+    const checked = document.querySelectorAll('.tv3-row-check:checked');
+    const bulkBar = document.getElementById('tv3BulkBar');
+    if (checked.length > 0) {
+        bulkBar.style.display = 'flex';
+        document.getElementById('tv3BulkCount').textContent = checked.length + ' selected';
+    } else {
+        bulkBar.style.display = 'none';
+    }
+}
+
+function clearTV3Selection() {
+    document.querySelectorAll('.tv3-row-check').forEach(cb => cb.checked = false);
+    const checkAll = document.getElementById('tv3CheckAll');
+    if (checkAll) checkAll.checked = false;
+    updateTV3BulkBar();
+}
+
+async function bulkMarkTrafficPaid() {
+    const ids = [...document.querySelectorAll('.tv3-row-check:checked')].map(cb => parseInt(cb.value));
+    if (!ids.length) return;
+
+    try {
+        const result = await apiCall('api/traffic.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: ids[0], ids, action: 'mark_paid', paid: true })
+        });
+        if (result.success) {
+            loadAdminTrafficCases();
+        } else {
+            alert(result.error || 'Error marking as paid');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert(err.message || 'Error marking as paid');
     }
 }
 

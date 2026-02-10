@@ -33,9 +33,9 @@ if ($method === 'GET') {
             $u['permissions'] = json_decode($u['permissions'] ?? '{}', true) ?: [];
         }
         jsonResponse(['users' => $users, 'current_user_id' => $user['id'], 'csrf_token' => generateCSRFToken()]);
-    } elseif (isManager()) {
+    } elseif (isManager() || !empty($user['is_attorney'])) {
         // Manager can see all active users (for case manager dropdown, etc.)
-        $stmt = $pdo->query("SELECT id, username, display_name, role FROM users WHERE is_active = 1 ORDER BY display_name");
+        $stmt = $pdo->query("SELECT id, username, display_name, role, is_active FROM users WHERE is_active = 1 ORDER BY display_name");
         $users = $stmt->fetchAll();
         jsonResponse(['users' => $users, 'current_user_id' => $user['id'], 'csrf_token' => generateCSRFToken()]);
     } else {

@@ -27,6 +27,13 @@
     padding: 8px 10px;
 }
 
+/* Attorney Progress pills */
+.ac-pills { display: flex; align-items: center; gap: 2px; background: #f0f1f3; border-radius: 8px; padding: 3px; margin-bottom: 14px; width: fit-content; }
+.ac-pill { padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; color: #777; background: transparent; border: none; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+.ac-pill:hover { color: #1a1a1a; }
+.ac-pill.active { background: #1a1f2e; color: #fff; font-weight: 600; }
+.ac-pill-count { font-size: 10px; font-weight: 700; background: #cc3333; color: #fff; border-radius: 8px; padding: 1px 5px; margin-left: 4px; }
+
 /* Team goal card panel */
 #teamGoalsContent .panel {
     border: 1px solid #e2e4ea;

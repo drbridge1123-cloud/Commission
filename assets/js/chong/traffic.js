@@ -160,48 +160,65 @@ function updateTrafficStats(cases) {
     document.getElementById('trafficCommission').textContent = formatCurrency(totalComm);
 }
 
+function getTrafficRowHtml(c) {
+    const discoveryBadge = c.discovery == 1
+        ? '<span class="tv3-badge dismissed">Received</span>'
+        : '';
+    const statusBadge = c.status === 'resolved'
+        ? '<span class="tv3-badge dismissed">Resolved</span>'
+        : '<span class="tv3-badge active">Active</span>';
+    const unpaidBadge = (c.status === 'resolved' && c.paid != 1)
+        ? '<span class="tv3-badge unpaid" style="margin-left:4px;">UNPAID</span>'
+        : '';
+
+    let dispBadge;
+    if (c.disposition === 'dismissed') {
+        dispBadge = '<span class="tv3-badge dismissed">Dismissed</span>';
+    } else if (c.disposition === 'amended') {
+        dispBadge = '<span class="tv3-badge amended">Amended</span>';
+    } else {
+        dispBadge = '<span class="tv3-badge pending">Pending</span>';
+    }
+
+    return `
+        <td>${escapeHtml(c.client_name)}</td>
+        <td style="font-family: monospace; font-size: 12px;">${escapeHtml(c.case_number || '-')}</td>
+        <td>${escapeHtml(c.court || '-')}</td>
+        <td>${escapeHtml(c.charge || '-')}</td>
+        <td>${c.citation_issued_date ? formatDate(c.citation_issued_date) : '-'}</td>
+        <td>${c.noa_sent_date ? formatDate(c.noa_sent_date) : '-'}</td>
+        <td>${c.court_date ? formatDate(c.court_date) : '-'}</td>
+        <td style="text-align:center;">${discoveryBadge}</td>
+        <td>${dispBadge}</td>
+        <td style="text-align:center;">${statusBadge}${unpaidBadge}</td>
+        <td>${escapeHtml(c.referral_source || '-')}</td>
+        <td style="text-align:center;">
+            <button class="tv3-icon-btn danger" onclick="event.stopPropagation(); deleteTrafficCase(${c.id})" title="Delete">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+        </td>
+    `;
+}
+
 function renderTrafficTable(cases) {
     const tbody = document.getElementById('trafficTableBody');
     if (!cases || cases.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="tv3-empty">No traffic cases</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="tv3-empty">No traffic cases</td></tr>';
         document.getElementById('trafficCaseCount').textContent = '0';
         return;
     }
 
-    tbody.innerHTML = cases.map(c => {
-        const discoveryBadge = c.discovery == 1
-            ? '<span class="tv3-badge dismissed">Received</span>'
-            : '';
-        const statusBadge = c.status === 'resolved'
-            ? '<span class="tv3-badge dismissed">Resolved</span>'
-            : '<span class="tv3-badge active">Active</span>';
-
-        return `
-            <tr onclick="openTrafficModal(trafficCasesData.find(x => x.id == ${c.id}))">
-                <td>${escapeHtml(c.client_name)}</td>
-                <td style="font-family: monospace; font-size: 12px;">${escapeHtml(c.case_number || '-')}</td>
-                <td>${escapeHtml(c.court || '-')}</td>
-                <td>${escapeHtml(c.charge || '-')}</td>
-                <td>${c.court_date ? formatDate(c.court_date) : '-'}</td>
-                <td>${c.noa_sent_date || '-'}</td>
-                <td style="text-align:center;">${discoveryBadge}</td>
-                <td style="text-align:center;">${statusBadge}</td>
-                <td>${escapeHtml(c.referral_source || '-')}</td>
-                <td style="text-align:center;" onclick="event.stopPropagation();">
-                    <div style="display:flex; gap:4px; justify-content:center;">
-                        <button class="tv3-icon-btn" onclick="downloadTrafficCasePDF(${c.id})" title="Download PDF">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        </button>
-                        <button class="tv3-icon-btn danger" onclick="deleteTrafficCase(${c.id})" title="Delete">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = cases.map(c =>
+        `<tr data-case-id="${c.id}" onclick="editTrafficCase(${c.id})" style="cursor:pointer;">${getTrafficRowHtml(c)}</tr>`
+    ).join('');
 
     document.getElementById('trafficCaseCount').textContent = cases.length;
+}
+
+// Accordion toggle for traffic edit modal
+function toggleTEMSection(trigger) {
+    const section = trigger.closest('.tem-section');
+    if (section) section.classList.toggle('open');
 }
 
 function updateTV3CasesFooter(cases) {
@@ -239,8 +256,8 @@ function populateCommissionDropdowns(cases) {
     const months = new Set();
     const years = new Set();
     cases.forEach(c => {
-        if (c.court_date) {
-            const d = new Date(c.court_date);
+        if (c.paid_at) {
+            const d = new Date(c.paid_at);
             if (!isNaN(d)) {
                 years.add(d.getFullYear().toString());
                 months.add(d.getMonth().toString());
@@ -257,11 +274,12 @@ function populateCommissionDropdowns(cases) {
         ).join('');
 
     const yearSelect = document.getElementById('commYearFilter');
-    const curYear = yearSelect.value;
+    const curYear = yearSelect.value || new Date().getFullYear().toString();
     yearSelect.innerHTML = '<option value="">All Years</option>' +
         [...years].sort().reverse().map(y =>
             `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`
         ).join('');
+    if (!yearSelect.value && curYear) yearSelect.value = curYear;
 }
 
 function setCommTrafficFilter(filter) {
@@ -286,14 +304,14 @@ function filterCommTraffic() {
 
     if (monthVal !== '') {
         filtered = filtered.filter(c => {
-            if (!c.court_date) return false;
-            return new Date(c.court_date).getMonth().toString() === monthVal;
+            if (!c.paid_at) return false;
+            return new Date(c.paid_at).getMonth().toString() === monthVal;
         });
     }
     if (yearVal) {
         filtered = filtered.filter(c => {
-            if (!c.court_date) return false;
-            return new Date(c.court_date).getFullYear().toString() === yearVal;
+            if (!c.paid_at) return false;
+            return new Date(c.paid_at).getFullYear().toString() === yearVal;
         });
     }
     if (search) {
@@ -325,7 +343,7 @@ function renderCommissionTable(cases) {
         } else if (commTrafficSortColumn === 'paid') {
             valA = a.paid ? 1 : 0;
             valB = b.paid ? 1 : 0;
-        } else if (commTrafficSortColumn === 'court_date' || commTrafficSortColumn === 'resolved_at') {
+        } else if (commTrafficSortColumn === 'court_date' || commTrafficSortColumn === 'paid_at') {
             valA = valA ? new Date(valA).getTime() : 0;
             valB = valB ? new Date(valB).getTime() : 0;
         } else {
@@ -348,14 +366,14 @@ function renderCommissionTable(cases) {
 
         return `
             <tr onclick="openTrafficModal(trafficCasesData.find(x => x.id == ${c.id}))">
+                <td>${escapeHtml(c.referral_source || '-')}</td>
                 <td>${escapeHtml(c.client_name)}</td>
                 <td>${escapeHtml(c.court || '-')}</td>
                 <td>${c.court_date ? formatDate(c.court_date) : '-'}</td>
-                <td>${c.resolved_at ? formatDate(c.resolved_at) : '-'}</td>
                 <td>${dispBadge}</td>
-                <td>${escapeHtml(c.referral_source || '-')}</td>
-                <td class="r" style="font-weight:600; color:#059669;">${formatCurrency(commission)}</td>
+                <td style="text-align:right; font-weight:600; color:#059669;">${formatCurrency(commission)}</td>
                 <td style="text-align:center;">${paidBadge}</td>
+                <td>${c.paid_at ? formatDate(c.paid_at) : '-'}</td>
             </tr>
         `;
     }).join('');
@@ -418,6 +436,7 @@ function exportTrafficCommissions() {
         'Client': c.client_name,
         'Court': c.court || '',
         'Court Date': c.court_date ? formatDate(c.court_date) : '',
+        'Paid Date': c.paid_at ? formatDate(c.paid_at) : '',
         'Requester': c.referral_source || '',
         'Disposition': c.disposition,
         'Commission': getTrafficCommission(c.disposition),
@@ -660,25 +679,53 @@ function openTrafficModal(caseData = null) {
     document.getElementById('trafficCaseId').value = '';
     document.getElementById('trafficModalTitle').textContent = 'Add Traffic Case';
     document.getElementById('trafficCommissionDisplay').textContent = '$0.00';
+    document.getElementById('trafficDeleteBtn').style.display = 'none';
 
     document.getElementById('trafficFilesSection').style.display = 'none';
-    document.getElementById('trafficFilesList').innerHTML = '<div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;">No files attached</div>';
+    document.getElementById('trafficFilesList').innerHTML = '';
+    const filesCount = document.getElementById('trafficFilesCount');
+    if (filesCount) filesCount.textContent = '\u2014 No files attached';
+
+    // Ensure all accordion sections are open
+    document.querySelectorAll('#trafficModal .tem-section').forEach(s => s.classList.add('open'));
 
     if (caseData) {
         document.getElementById('trafficModalTitle').textContent = 'Edit Traffic Case';
         document.getElementById('trafficCaseId').value = caseData.id;
+        document.getElementById('trafficDeleteBtn').style.display = '';
         document.getElementById('trafficClientName').value = caseData.client_name || '';
         document.getElementById('trafficClientPhone').value = caseData.client_phone || '';
-        document.getElementById('trafficCourt').value = caseData.court || '';
+
+        // Ensure court value exists as option, add if needed
+        const courtSelect = document.getElementById('trafficCourt');
+        if (caseData.court && !courtSelect.querySelector(`option[value="${CSS.escape(caseData.court)}"]`)) {
+            const opt = document.createElement('option');
+            opt.value = caseData.court;
+            opt.textContent = caseData.court;
+            courtSelect.insertBefore(opt, courtSelect.lastElementChild);
+        }
+        courtSelect.value = caseData.court || '';
+
         document.getElementById('trafficCourtDate').value = caseData.court_date ? caseData.court_date.replace(' ', 'T').substring(0, 16) : '';
-        document.getElementById('trafficCharge').value = caseData.charge || '';
+
+        // Ensure charge value exists as option, add if needed
+        const chargeSelect = document.getElementById('trafficCharge');
+        if (caseData.charge && !chargeSelect.querySelector(`option[value="${CSS.escape(caseData.charge)}"]`)) {
+            const opt = document.createElement('option');
+            opt.value = caseData.charge;
+            opt.textContent = caseData.charge;
+            chargeSelect.insertBefore(opt, chargeSelect.lastElementChild);
+        }
+        chargeSelect.value = caseData.charge || '';
+
         document.getElementById('trafficCaseNumber').value = caseData.case_number || '';
+        document.getElementById('trafficIssuedDate').value = caseData.citation_issued_date || '';
         document.getElementById('trafficOffer').value = caseData.prosecutor_offer || '';
         document.getElementById('trafficDisposition').value = caseData.disposition || 'pending';
         document.getElementById('trafficStatus').value = caseData.status || 'active';
         document.getElementById('trafficReferralSource').value = caseData.referral_source || '';
         document.getElementById('trafficNoaSentDate').value = caseData.noa_sent_date || '';
-        document.getElementById('trafficDiscovery').checked = caseData.discovery_received == 1;
+        document.getElementById('trafficDiscovery').checked = caseData.discovery == 1;
         document.getElementById('trafficPaid').checked = caseData.paid == 1;
         document.getElementById('trafficNote').value = caseData.note || '';
         updateTrafficCommission();
@@ -719,7 +766,8 @@ async function submitTrafficCase(event) {
         status: document.getElementById('trafficStatus').value,
         referral_source: document.getElementById('trafficReferralSource').value,
         noa_sent_date: document.getElementById('trafficNoaSentDate').value,
-        discovery_received: document.getElementById('trafficDiscovery').checked,
+        citation_issued_date: document.getElementById('trafficIssuedDate').value || null,
+        discovery: document.getElementById('trafficDiscovery').checked,
         paid: document.getElementById('trafficPaid').checked,
         note: document.getElementById('trafficNote').value
     };
@@ -732,9 +780,9 @@ async function submitTrafficCase(event) {
     if (result.success) {
         closeModal('trafficModal');
         loadTrafficCases();
-        alert(caseId ? 'Traffic case updated!' : 'Traffic case added!');
+        showToast(caseId ? 'Traffic case updated' : 'Traffic case added', 'success');
     } else {
-        alert('Error: ' + (result.error || 'Failed to save'));
+        showToast('Error: ' + (result.error || 'Failed to save'), 'error');
     }
 }
 
@@ -748,6 +796,13 @@ async function deleteTrafficCase(caseId) {
     } else {
         showToast(result.error || 'Failed to delete', 'error');
     }
+}
+
+function deleteTrafficCaseFromModal() {
+    const caseId = document.getElementById('trafficCaseId').value;
+    if (!caseId) return;
+    closeModal('trafficModal');
+    deleteTrafficCase(caseId);
 }
 
 function getTrafficCommission(disposition) {

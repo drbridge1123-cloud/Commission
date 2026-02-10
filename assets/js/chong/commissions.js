@@ -95,11 +95,11 @@ function renderCommissionsTable(cases) {
                 ? `<span class="ink-badge paid">PAID</span>`
                 : `<span class="ink-badge unpaid clickable" onclick="toggleCommissionStatus(${c.id})" title="Click to mark paid">UNPAID</span>`;
             const checkIcon = c.check_received == 1
-                ? `<span class="check-toggle checked"${!isPaid ? ` onclick="toggleCheckReceived(${c.id})" title="Check received - click to unmark"` : ''}>&#10003;</span>`
-                : `<span class="check-toggle"${!isPaid ? ` onclick="toggleCheckReceived(${c.id})" title="Click to mark check received"` : ''}>&#10003;</span>`;
+                ? `<span onclick="toggleCheckReceived(${c.id})" style="cursor:pointer;font-size:11px;font-weight:600;color:#059669;" title="Click to unmark">Received</span>`
+                : `<span onclick="toggleCheckReceived(${c.id})" style="cursor:pointer;font-size:11px;font-weight:600;color:#d1d5db;" title="Click to mark received">Pending</span>`;
 
             const settled = parseFloat(c.settled || 0);
-            const preSuitOffer = parseFloat(c.pre_suit_offer || 0);
+            const preSuitOffer = parseFloat(c.presuit_offer || 0);
             const difference = settled - preSuitOffer;
             const legalFee = parseFloat(c.legal_fee || 0);
             const discFee = parseFloat(c.discounted_legal_fee || 0);
@@ -107,12 +107,23 @@ function renderCommissionsTable(cases) {
 
             const resType = c.resolution_type || '-';
             let resBadge = '';
-            if (resType.toLowerCase().includes('demand')) {
+            const rt = resType.toLowerCase();
+            if (rt.includes('demand')) {
                 resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#3b82f6;border-radius:50%;margin-right:6px;"></span>';
-            } else if (resType.toLowerCase().includes('mediation')) {
+            } else if (rt.includes('mediation')) {
                 resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#d97706;border-radius:50%;margin-right:6px;"></span>';
-            } else if (resType.toLowerCase().includes('arb')) {
+            } else if (rt.includes('arb')) {
                 resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#8b5cf6;border-radius:50%;margin-right:6px;"></span>';
+            } else if (rt.includes('file and bump') || rt.includes('bump')) {
+                resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#10b981;border-radius:50%;margin-right:6px;"></span>';
+            } else if (rt.includes('no offer')) {
+                resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#f43f5e;border-radius:50%;margin-right:6px;"></span>';
+            } else if (rt.includes('post dep')) {
+                resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#06b6d4;border-radius:50%;margin-right:6px;"></span>';
+            } else if (rt.includes('referral')) {
+                resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#a855f7;border-radius:50%;margin-right:6px;"></span>';
+            } else if (resType !== '-') {
+                resBadge = '<span style="display:inline-block;width:8px;height:8px;background:#9ca3af;border-radius:50%;margin-right:6px;"></span>';
             }
 
             html += `
@@ -204,7 +215,7 @@ function editCommission(caseId) {
     document.getElementById('editCommClientName').value = c.client_name || '';
     document.getElementById('editCommResolutionType').value = c.resolution_type || '';
     document.getElementById('editCommSettled').value = c.settled || '';
-    document.getElementById('editCommPreSuitOffer').value = c.pre_suit_offer || '';
+    document.getElementById('editCommPreSuitOffer').value = c.presuit_offer || '';
     document.getElementById('editCommLegalFee').value = c.legal_fee || '';
     document.getElementById('editCommDiscountedFee').value = c.discounted_legal_fee || '';
     document.getElementById('editCommCommission').value = c.commission || '';
@@ -221,7 +232,7 @@ async function saveCommission() {
         client_name: document.getElementById('editCommClientName').value,
         resolution_type: document.getElementById('editCommResolutionType').value,
         settled: document.getElementById('editCommSettled').value,
-        pre_suit_offer: document.getElementById('editCommPreSuitOffer').value,
+        presuit_offer: document.getElementById('editCommPreSuitOffer').value,
         legal_fee: document.getElementById('editCommLegalFee').value,
         discounted_legal_fee: document.getElementById('editCommDiscountedFee').value,
         commission: document.getElementById('editCommCommission').value,

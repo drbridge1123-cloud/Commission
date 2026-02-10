@@ -374,7 +374,19 @@ function isAdmin()
 function isAttorney($userId = null)
 {
     if ($userId === null) {
-        return !empty($_SESSION['is_attorney']);
+        if (!empty($_SESSION['is_attorney'])) return true;
+        // Fallback: check DB if session is stale
+        if (!empty($_SESSION['user_id'])) {
+            $pdo = getDB();
+            $stmt = $pdo->prepare("SELECT is_attorney FROM users WHERE id = ? AND is_active = 1");
+            $stmt->execute([$_SESSION['user_id']]);
+            $row = $stmt->fetch();
+            if ($row && $row['is_attorney']) {
+                $_SESSION['is_attorney'] = 1;
+                return true;
+            }
+        }
+        return false;
     }
     $pdo = getDB();
     $stmt = $pdo->prepare("SELECT is_attorney FROM users WHERE id = ? AND is_active = 1");
@@ -390,7 +402,19 @@ function isAttorney($userId = null)
 function isManager($userId = null)
 {
     if ($userId === null) {
-        return !empty($_SESSION['is_manager']);
+        if (!empty($_SESSION['is_manager'])) return true;
+        // Fallback: check DB if session is stale
+        if (!empty($_SESSION['user_id'])) {
+            $pdo = getDB();
+            $stmt = $pdo->prepare("SELECT is_manager FROM users WHERE id = ? AND is_active = 1");
+            $stmt->execute([$_SESSION['user_id']]);
+            $row = $stmt->fetch();
+            if ($row && $row['is_manager']) {
+                $_SESSION['is_manager'] = 1;
+                return true;
+            }
+        }
+        return false;
     }
     $pdo = getDB();
     $stmt = $pdo->prepare("SELECT is_manager FROM users WHERE id = ? AND is_active = 1");

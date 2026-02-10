@@ -74,9 +74,15 @@
                             <label class="m-label">Referral Source</label>
                             <input type="text" id="adminTrafficReferralSource" class="m-input">
                         </div>
-                        <div class="m-checkbox-row" style="border-top: none; margin-top: 16px; padding: 0;">
-                            <input type="checkbox" id="adminTrafficDiscovery">
-                            <label for="adminTrafficDiscovery">Discovery Received</label>
+                        <div style="margin-top: 16px; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+                            <div class="m-checkbox-row" style="border-top: none; padding: 0;">
+                                <input type="checkbox" id="adminTrafficDiscovery">
+                                <label for="adminTrafficDiscovery">Discovery Received</label>
+                            </div>
+                            <div class="m-checkbox-row" style="border-top: none; padding: 0;">
+                                <input type="checkbox" id="adminTrafficPaid">
+                                <label for="adminTrafficPaid">Paid</label>
+                            </div>
                         </div>
                     </div>
                     <div class="m-row cols-1">

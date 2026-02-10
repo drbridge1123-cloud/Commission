@@ -21,6 +21,10 @@ function switchTab(tabName) {
     document.getElementById('pageTitle').textContent = pageTitles[tabName] || tabName;
 
     // Load data for specific tabs
+    if (tabName === 'demand') {
+        loadDemandCases();
+        loadDemandRequests();
+    }
     if (tabName === 'commissions') {
         loadCommissions();
     }
@@ -40,6 +44,7 @@ function switchTab(tabName) {
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboard();
     loadDemandCases();
+    loadDemandRequests();
     loadLitigationCases();
     loadUnreadCount();
     loadAllTrafficRequests();
@@ -67,9 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const presuit = parseFloat(btn.dataset.presuit) || 0;
 
         switch (action) {
-            case 'new-demand':
-                openNewDemandModal();
-                break;
             case 'new-traffic':
                 openTrafficModal();
                 break;

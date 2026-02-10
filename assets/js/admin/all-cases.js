@@ -484,7 +484,7 @@ function editCaseFromRow(id) {
     }
 
     document.getElementById('editCaseId').value = c.id;
-    document.getElementById('editCaseType').value = c.case_type || 'Auto Accident';
+    document.getElementById('editCaseType').value = c.case_type || 'Auto';
     document.getElementById('editResolutionType').value = c.resolution_type || '';
     document.getElementById('editCaseNumber').value = c.case_number;
     document.getElementById('editClientName').value = c.client_name;

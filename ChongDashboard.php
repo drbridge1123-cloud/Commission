@@ -34,12 +34,13 @@ $resolutionTypes = getChongResolutionTypes();
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/common.css?v=<?= filemtime('assets/css/common.css') ?>">
     <link rel="stylesheet" href="assets/css/admin.css?v=<?= filemtime('assets/css/admin.css') ?>">
     <link rel="stylesheet" href="assets/css/steel-minimal.css?v=<?= filemtime('assets/css/steel-minimal.css') ?>">
     <link rel="stylesheet" href="assets/css/chong-inline.css?v=<?= filemtime('assets/css/chong-inline.css') ?>">
     <link rel="stylesheet" href="assets/css/traffic-v3.css?v=<?= filemtime('assets/css/traffic-v3.css') ?>">
+    <link rel="stylesheet" href="assets/css/traffic-edit-modal.css?v=<?= filemtime('assets/css/traffic-edit-modal.css') ?>">
 </head>
 <body class="steel-minimal">
     <!-- Sidebar -->
@@ -141,11 +142,11 @@ $resolutionTypes = getChongResolutionTypes();
         </div><!-- /.page-content -->
     </div><!-- /.main -->
 
-    <?php include 'app/views/chong/modals/new-demand.php'; ?>
-
     <?php include 'app/views/chong/modals/settle-demand.php'; ?>
 
     <?php include 'app/views/chong/modals/to-litigation.php'; ?>
+
+    <?php include 'app/views/chong/modals/top-offer.php'; ?>
 
     <?php include 'app/views/chong/modals/settle-litigation.php'; ?>
 

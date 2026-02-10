@@ -142,7 +142,9 @@ if ($method === 'POST') {
         $legalFee = $chongResult['legal_fee'] ?: $legalFee;
         $feeRate = $chongResult['fee_rate'] ?: $feeRate;
     } else {
-        $commission = calculateCommission($discountedLegalFee, $user['commission_rate']);
+        $isMarketing = !empty($data['is_marketing']) ? 1 : 0;
+        $effectiveRate = $isMarketing ? MARKETING_COMMISSION_RATE : $user['commission_rate'];
+        $commission = calculateCommission($discountedLegalFee, $effectiveRate);
     }
 
     // Attorney-specific fields
@@ -157,19 +159,21 @@ if ($method === 'POST') {
     $checkReceived = !empty($data['check_received']) ? 1 : 0;
     $autoStatus = calculateAutoStatus($settled, $checkReceived);
 
+    $isMarketingVal = !empty($data['is_marketing']) ? 1 : 0;
+
     $stmt = $pdo->prepare("
         INSERT INTO cases (
             user_id, case_type, case_number, client_name, resolution_type,
             fee_rate, month, intake_date, settled, presuit_offer, difference,
             legal_fee, discounted_legal_fee, commission, commission_type,
             phase, assigned_date, demand_deadline,
-            note, check_received, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            note, check_received, is_marketing, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
         $user['id'],
-        sanitizeString($data['case_type'] ?? 'Auto Accident', 50),
+        sanitizeString($data['case_type'] ?? 'Auto', 50),
         $caseNumber,
         $clientName,
         $resolutionType,
@@ -188,6 +192,7 @@ if ($method === 'POST') {
         $demandDeadline,
         sanitizeString($data['note'] ?? '', 1000),
         $checkReceived,
+        $isMarketingVal,
         $autoStatus
     ]);
 
@@ -323,7 +328,9 @@ if ($method === 'PUT') {
         $legalFee = $chongResult['legal_fee'] ?: $legalFee;
         $feeRate = $chongResult['fee_rate'] ?: $feeRate;
     } else {
-        $commission = calculateCommission($discountedLegalFee, $caseOwner['commission_rate']);
+        $isMarketing = isset($data['is_marketing']) ? (!empty($data['is_marketing']) ? 1 : 0) : $case['is_marketing'];
+        $effectiveRate = $isMarketing ? MARKETING_COMMISSION_RATE : $caseOwner['commission_rate'];
+        $commission = calculateCommission($discountedLegalFee, $effectiveRate);
     }
 
     // Handle status - auto-calculate or admin override
@@ -361,6 +368,32 @@ if ($method === 'PUT') {
         }
     }
 
+    // Handle demand_out_date and negotiate_date (manually entered)
+    $demandOutDate = $case['demand_out_date'];
+    if (array_key_exists('demand_out_date', $data)) {
+        $demandOutDate = !empty($data['demand_out_date']) ? sanitizeString($data['demand_out_date'], 20) : null;
+    }
+    $negotiateDate = $case['negotiate_date'];
+    if (array_key_exists('negotiate_date', $data)) {
+        $negotiateDate = !empty($data['negotiate_date']) ? sanitizeString($data['negotiate_date'], 20) : null;
+    }
+    $topOfferAmount = $case['top_offer_amount'];
+    if (array_key_exists('top_offer_amount', $data)) {
+        $topOfferAmount = sanitizeNumber($data['top_offer_amount'] ?? 0, 0, 999999999.99);
+    }
+    $topOfferDate = $case['top_offer_date'];
+    if (array_key_exists('top_offer_date', $data)) {
+        $topOfferDate = !empty($data['top_offer_date']) ? sanitizeString($data['top_offer_date'], 20) : null;
+    }
+    $topOfferAssigneeId = $case['top_offer_assignee_id'];
+    if (array_key_exists('top_offer_assignee_id', $data)) {
+        $topOfferAssigneeId = $data['top_offer_assignee_id'] ? intval($data['top_offer_assignee_id']) : null;
+    }
+    $topOfferNote = $case['top_offer_note'];
+    if (array_key_exists('top_offer_note', $data)) {
+        $topOfferNote = sanitizeString($data['top_offer_note'] ?? '', 1000) ?: null;
+    }
+
     // Calculate duration days for attorneys
     $demandDurationDays = null;
     $litigationDurationDays = null;
@@ -390,10 +423,12 @@ if ($method === 'PUT') {
             case_type = ?, case_number = ?, client_name = ?, resolution_type = ?,
             fee_rate = ?, month = ?, settled = ?, presuit_offer = ?, difference = ?,
             legal_fee = ?, discounted_legal_fee = ?, commission = ?, commission_type = ?,
-            phase = ?, stage = ?, assigned_date = ?, demand_deadline = ?, demand_settled_date = ?,
+            phase = ?, stage = ?, assigned_date = ?, demand_deadline = ?, demand_out_date = ?, negotiate_date = ?,
+            top_offer_amount = ?, top_offer_date = ?, top_offer_assignee_id = ?, top_offer_note = ?,
+            demand_settled_date = ?,
             litigation_start_date = ?, litigation_settled_date = ?,
             demand_duration_days = ?, litigation_duration_days = ?, total_duration_days = ?,
-            note = ?, check_received = ?,
+            note = ?, check_received = ?, is_marketing = ?,
             status = ?, reviewed_at = CASE WHEN ? != ? THEN NOW() ELSE reviewed_at END,
             reviewed_by = CASE WHEN ? != ? THEN ? ELSE reviewed_by END
         WHERE id = ?
@@ -420,6 +455,12 @@ if ($method === 'PUT') {
         $stage,
         $assignedDate,
         $demandDeadline,
+        $demandOutDate,
+        $negotiateDate,
+        $topOfferAmount,
+        $topOfferDate,
+        $topOfferAssigneeId,
+        $topOfferNote,
         $demandSettledDate,
         $litigationStartDate,
         $litigationSettledDate,
@@ -428,6 +469,7 @@ if ($method === 'PUT') {
         $totalDurationDays,
         sanitizeString($data['note'] ?? $case['note'], 1000),
         $newCheckReceived,
+        isset($data['is_marketing']) ? (!empty($data['is_marketing']) ? 1 : 0) : $case['is_marketing'],
         $newStatus,
         $newStatus, $case['status'], // For reviewed_at CASE
         $newStatus, $case['status'], $user['id'], // For reviewed_by CASE

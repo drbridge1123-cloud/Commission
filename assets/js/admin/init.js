@@ -63,8 +63,10 @@ async function switchTab(tab) {
                 initPipelineYearFilter();
                 loadPipelineData();
             });
-        } else {
+        } else if (currentPipelineSubTab === 'deadline') {
             loadDeadlineRequests();
+        } else if (currentPipelineSubTab === 'demandReq') {
+            loadMyDemandRequests();
         }
     }
     if (tab === 'referrals') {
@@ -107,15 +109,20 @@ function switchAnalyticsSubTab(subTab) {
     if (subTab === 'report') { loadAllCases().then(() => generateComprehensiveReport()); }
 }
 
-// Pipeline sub-tab switching (Pipeline / Deadline Requests)
+// Pipeline sub-tab switching (Pipeline / Deadline Requests / Demand Requests)
 function switchPipelineSubTab(subTab) {
     currentPipelineSubTab = subTab;
-    ['pipeline', 'deadline'].forEach(t => {
+    ['pipeline', 'deadline', 'demandReq'].forEach(t => {
         const panel = document.getElementById('plSub-' + t);
         if (panel) panel.style.display = t === subTab ? '' : 'none';
         const pill = document.getElementById('plPill-' + t);
         if (pill) pill.classList.toggle('active', t === subTab);
     });
+
+    // Show/hide "Send Demand to Chong" button
+    const sendBtn = document.getElementById('plSendDemandBtn');
+    if (sendBtn) sendBtn.style.display = (subTab === 'demandReq') ? '' : 'none';
+
     if (subTab === 'pipeline') {
         initPipelineAttorneyFilter().then(() => {
             initPipelineYearFilter();
@@ -123,6 +130,7 @@ function switchPipelineSubTab(subTab) {
         });
     }
     if (subTab === 'deadline') loadDeadlineRequests();
+    if (subTab === 'demandReq') loadMyDemandRequests();
 }
 
 // Sidebar navigation click handlers

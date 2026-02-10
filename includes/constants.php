@@ -16,6 +16,7 @@ define('FEE_RATE_PREMIUM', 40.00);        // Premium/Litigation fee rate
 define('COMMISSION_RATE_DEFAULT', 10.00);
 define('COMMISSION_RATE_MIN', 5.00);
 define('COMMISSION_RATE_MAX', 20.00);
+define('MARKETING_COMMISSION_RATE', 5.00);  // Rate for Google/marketing-sourced cases
 
 // ============================================
 // Case Types

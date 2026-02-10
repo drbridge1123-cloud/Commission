@@ -39,7 +39,7 @@ async function loadCaseManagerFilter() {
             sel.appendChild(opt);
         });
 
-        // Also populate referral form Case Manager dropdown
+        // Also populate referral form Case Manager + Lead dropdowns
         const formSel = document.getElementById('refCaseManager');
         if (formSel) {
             while (formSel.options.length > 1) formSel.remove(1);
@@ -48,6 +48,17 @@ async function loadCaseManagerFilter() {
                 opt.value = u.id;
                 opt.textContent = u.display_name;
                 formSel.appendChild(opt);
+            });
+        }
+        const leadSel = document.getElementById('refLead');
+        if (leadSel) {
+            // Keep static options (Select, Office, Prior Client), remove dynamic employee options
+            while (leadSel.options.length > 3) leadSel.remove(3);
+            referralUsersCache.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = u.display_name;
+                leadSel.appendChild(opt);
             });
         }
     } catch (err) {
@@ -92,7 +103,7 @@ function renderReferrals() {
 
         return `<tr>
             <td class="c" style="color: #8b8fa3;">${r.row_number || ''}</td>
-            <td>${escapeHtml(r.referral_type || '')}</td>
+            <td style="font-weight: 500;">${escapeHtml(r.lead_name || r.referral_type || '')}</td>
             <td style="white-space: nowrap;">${escapeHtml(signed)}</td>
             <td style="font-family: 'Space Mono', monospace; font-size: 11px;">${escapeHtml(r.file_number || '')}</td>
             <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(r.client_name)}">${escapeHtml(r.client_name)}</td>
@@ -136,7 +147,7 @@ function openReferralForm(id) {
     document.getElementById('refReferredBy').value = '';
     document.getElementById('refProvider').value = '';
     document.getElementById('refBodyShop').value = '';
-    document.getElementById('refType').value = '';
+    document.getElementById('refLead').value = '';
     document.getElementById('refCaseManager').value = '';
     document.getElementById('refRemark').value = '';
 
@@ -159,7 +170,15 @@ function editReferral(id) {
     document.getElementById('refReferredBy').value = r.referred_by || '';
     document.getElementById('refProvider').value = r.referred_to_provider || '';
     document.getElementById('refBodyShop').value = r.referred_to_body_shop || '';
-    document.getElementById('refType').value = r.referral_type || '';
+    if (r.lead_id) {
+        document.getElementById('refLead').value = r.lead_id;
+    } else if (r.referral_type === 'Office') {
+        document.getElementById('refLead').value = 'office';
+    } else if (r.referral_type === 'Prior client') {
+        document.getElementById('refLead').value = 'prior_client';
+    } else {
+        document.getElementById('refLead').value = '';
+    }
     document.getElementById('refCaseManager').value = r.case_manager_id || '';
     document.getElementById('refRemark').value = r.remark || '';
 
@@ -171,6 +190,16 @@ async function saveReferral(e) {
     e.preventDefault();
 
     const editId = document.getElementById('refEditId').value;
+    const leadVal = document.getElementById('refLead').value;
+    let leadId = null;
+    let referralType = '';
+    if (leadVal === 'office') {
+        referralType = 'Office';
+    } else if (leadVal === 'prior_client') {
+        referralType = 'Prior client';
+    } else if (leadVal) {
+        leadId = leadVal;
+    }
     const data = {
         signed_date: document.getElementById('refSignedDate').value,
         file_number: document.getElementById('refFileNumber').value,
@@ -179,7 +208,8 @@ async function saveReferral(e) {
         referred_by: document.getElementById('refReferredBy').value,
         referred_to_provider: document.getElementById('refProvider').value,
         referred_to_body_shop: document.getElementById('refBodyShop').value,
-        referral_type: document.getElementById('refType').value,
+        lead_id: leadId,
+        referral_type: referralType,
         case_manager_id: document.getElementById('refCaseManager').value || null,
         remark: document.getElementById('refRemark').value
     };
@@ -242,7 +272,7 @@ function exportReferrals() {
 
     const rows = allReferrals.map(r => ({
         '#': r.row_number || '',
-        'Lead': r.referral_type || '',
+        'Lead': r.lead_name || r.referral_type || '',
         'Signed Date': r.signed_date || '',
         'File Number': r.file_number || '',
         'Client Name': r.client_name || '',

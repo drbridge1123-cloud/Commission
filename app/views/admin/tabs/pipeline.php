@@ -7,6 +7,11 @@
         <button class="ac-pill" id="plPill-deadline" onclick="switchPipelineSubTab('deadline')">
             Deadline Requests <span id="plPillDeadlineCount" class="ac-pill-count" style="display:none;">0</span>
         </button>
+        <button class="ac-pill" id="plPill-demandReq" onclick="switchPipelineSubTab('demandReq')">
+            Demand Requests <span id="plPillDemandReqCount" class="ac-pill-count" style="display:none;">0</span>
+        </button>
+        <span style="flex:1;"></span>
+        <button class="f-btn" id="plSendDemandBtn" onclick="openAdminDemandRequestForm()" style="display:none; font-size:11px; padding:4px 12px;">+ Send Demand to Chong</button>
     </div>
 
     <!-- ========== SUB-TAB: PIPELINE ========== -->
@@ -142,5 +147,36 @@
         </div>
 
     </div><!-- /plSub-deadline -->
+
+    <!-- ========== SUB-TAB: DEMAND REQUESTS ========== -->
+    <div id="plSub-demandReq" style="display:none;">
+
+        <div class="tbl-container">
+            <div class="tbl-header">
+                <span class="tbl-title">My Demand Requests</span>
+            </div>
+            <table class="tbl" style="table-layout: auto;">
+                <thead>
+                    <tr>
+                        <th data-sort="date">Submitted</th>
+                        <th data-sort="text">Client</th>
+                        <th data-sort="text">Case #</th>
+                        <th data-sort="text">Case Type</th>
+                        <th>Note</th>
+                        <th class="c" data-sort="text">Status</th>
+                        <th>Reason</th>
+                        <th class="c">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="plDemandReqBody">
+                    <tr><td colspan="8" style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">Loading...</td></tr>
+                </tbody>
+            </table>
+            <div class="tbl-foot">
+                <div class="left"><span id="plDemandReqCount">0</span> requests</div>
+            </div>
+        </div>
+
+    </div><!-- /plSub-demandReq -->
 
 </div>

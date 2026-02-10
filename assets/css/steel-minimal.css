@@ -463,7 +463,9 @@ body.steel-minimal table.excel-table thead th {
     border-bottom: 1px solid #1a1a2e;
     border-right: 1px solid rgba(255,255,255,0.1) !important;
     text-align: left;
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 body.steel-minimal .tbl thead th:last-child,
@@ -710,11 +712,16 @@ body.steel-minimal .sortable:hover {
     cursor: pointer;
     border: none;
     color: white;
+    background: #3b82f6;
     transition: all 0.12s;
 }
+.act-link:hover { background: #2563eb; }
 
 .act-link.success { background: var(--green); }
 .act-link.success:hover { background: #15803d; }
+
+.act-link.danger { background: #dc2626; }
+.act-link.danger:hover { background: #b91c1c; }
 
 /* ============================================
    Alert Strips
@@ -1135,6 +1142,8 @@ input[type="checkbox"] {
 .act-btn.settle:hover { background: #0f766e; }
 .act-btn.to-lit { background: #6366f1; color: #fff; }
 .act-btn.to-lit:hover { background: #4f46e5; }
+.act-btn.top-offer { background: #ede9fe; color: #7c3aed; }
+.act-btn.top-offer:hover { background: #ddd6fe; }
 .act-btn.mark-paid { background: #16a34a; color: #fff; }
 .act-btn.mark-paid:hover { background: #15803d; }
 .act-btn.approve { background: #0d9488; color: #fff; }
@@ -1429,6 +1438,51 @@ textarea.m-input {
     margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
+}
+
+/* Collapsible sections */
+.m-collapse {
+    border-top: 1px solid #e5e7eb;
+    margin-top: 10px;
+}
+.m-collapse-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: background 0.15s;
+    margin-top: 4px;
+}
+.m-collapse-toggle:hover { background: #e5e7eb; }
+#editSettlementSection > .m-collapse-toggle { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+#editSettlementSection > .m-collapse-toggle:hover { background: #dbeafe; }
+#deadlineSection > .m-collapse-toggle { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+#deadlineSection > .m-collapse-toggle:hover { background: #fde68a; }
+#editTopOfferSection > .m-collapse-toggle { background: #d1fae5; border-color: #a7f3d0; color: #065f46; }
+#editTopOfferSection > .m-collapse-toggle:hover { background: #a7f3d0; }
+.m-collapse-arrow {
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.m-collapse.expanded .m-collapse-arrow {
+    transform: rotate(90deg);
+}
+.m-collapse-body {
+    display: none;
+    padding-bottom: 6px;
+}
+.m-collapse.expanded .m-collapse-body {
+    display: block;
 }
 
 /* Bypass toggle button */

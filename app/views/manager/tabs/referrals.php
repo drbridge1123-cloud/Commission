@@ -49,26 +49,28 @@
                     <span class="tbl-title">Referral Entries</span>
                     <span class="tbl-count" id="refTableCount">0 entries</span>
                 </div>
-                <table class="tbl" style="table-layout: auto;">
-                    <thead>
-                        <tr>
-                            <th style="width: 30px;" data-sort="number">#</th>
-                            <th data-sort="text">Lead</th>
-                            <th data-sort="date">Signed Date</th>
-                            <th data-sort="text">File #</th>
-                            <th data-sort="text">Client Name</th>
-                            <th data-sort="date">Date of Loss</th>
-                            <th data-sort="text">Referred By</th>
-                            <th data-sort="text">Referred To</th>
-                            <th data-sort="text">Body Shop</th>
-                            <th data-sort="text">Case Mgr</th>
-                            <th data-sort="text">Remark</th>
-                            <th class="c" style="width: 80px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="referralsTableBody">
-                        <tr><td colspan="12" style="text-align: center; padding: 40px; color: #8b8fa3; font-size: 12px;">Loading...</td></tr>
-                    </tbody>
-                </table>
+                <div style="max-height: calc(100vh - 320px); overflow-y: auto;">
+                    <table class="tbl" style="table-layout: auto;">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;" data-sort="number">#</th>
+                                <th data-sort="text">Lead</th>
+                                <th data-sort="date">Signed Date</th>
+                                <th data-sort="text">File #</th>
+                                <th data-sort="text">Client Name</th>
+                                <th data-sort="date">Date of Loss</th>
+                                <th data-sort="text">Referred By</th>
+                                <th data-sort="text">Referred To</th>
+                                <th data-sort="text">Body Shop</th>
+                                <th data-sort="text">Case Mgr</th>
+                                <th data-sort="text">Remark</th>
+                                <th class="c" style="width: 80px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="referralsTableBody">
+                            <tr><td colspan="12" style="text-align: center; padding: 40px; color: #8b8fa3; font-size: 12px;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>

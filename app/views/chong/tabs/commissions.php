@@ -80,7 +80,13 @@
                 </table>
                 <div class="tbl-foot">
                     <span id="commTableCount">0 cases</span>
-                    <span>Total <span class="ft-val" id="commTableTotal">$0.00</span>&nbsp;&nbsp;Paid <span class="ft-val" style="color:#0d9488;" id="commTablePaid">$0.00</span>&nbsp;&nbsp;Unpaid <span class="ft-val" style="color:#dc2626;" id="commTableUnpaid">$0.00</span></span>
+                    <span style="display:flex; gap:16px;">
+                        <span>Total <span class="ft-val" id="commTableTotal">$0.00</span></span>
+                        <span style="color:#8b8fa3;">|</span>
+                        <span>Paid <span class="ft-val" style="color:#0d9488;" id="commTablePaid">$0.00</span></span>
+                        <span style="color:#8b8fa3;">|</span>
+                        <span>Unpaid <span class="ft-val" style="color:#dc2626;" id="commTableUnpaid">$0.00</span></span>
+                    </span>
                 </div>
             </div>
         </div>

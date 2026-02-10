@@ -428,9 +428,23 @@
 .tv3-icon-btn.danger { color: #dc2626; border-color: #fecaca; }
 .tv3-icon-btn.danger:hover { background: #fef2f2; }
 
+.tv3-editing { background: #f0f9ff !important; }
+.tv3-editing td { padding-top: 4px !important; padding-bottom: 4px !important; }
+
 .tv3-filter-row .tv3-filter-spacer {
     flex: 1;
 }
 
 .tv3-table thead th.r { text-align: right; }
 .tv3-table tbody td.r { text-align: right; }
+
+/* Commission table even columns */
+#commTrafficTable { table-layout: fixed; }
+#commTrafficTable col.col-client    { width: 16%; }
+#commTrafficTable col.col-court     { width: 16%; }
+#commTrafficTable col.col-courtdate { width: 12%; }
+#commTrafficTable col.col-disp      { width: 12%; }
+#commTrafficTable col.col-requester { width: 12%; }
+#commTrafficTable col.col-amount    { width: 10%; }
+#commTrafficTable col.col-paid      { width: 9%; }
+#commTrafficTable col.col-paiddate  { width: 13%; }

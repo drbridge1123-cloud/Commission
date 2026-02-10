@@ -221,14 +221,14 @@ function renderCases() {
                 <td class="r">${difference > 0 ? formatCurrency(difference) : '\u2014'}</td>
                 <td class="r">${formatCurrency(legalFee)}</td>
                 <td class="r">${formatCurrency(discFee)}</td>
-                <td class="r" style="font-weight:700; color:#0d9488;">${formatCurrency(commission)}</td>
+                <td class="r" style="font-weight:700; color:#0d9488;">${formatCurrency(commission)}${c.is_marketing == 1 ? ' <span class="tv3-badge" style="background:#fef3c7;color:#92400e;font-size:9px;">MKT</span>' : ''}</td>
                 <td>${escapeHtml(c.month || '-')}</td>
                 <td class="c">
                     <div style="display:flex; gap:4px; justify-content:center;">
-                        ${canEdit ? `<button class="act-link" onclick="event.stopPropagation(); editCase(${c.id})" title="Edit" style="padding:4px 6px;">
+                        ${canEdit ? `<button class="act-icon edit" onclick="event.stopPropagation(); editCase(${c.id})" title="Edit">
                             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>` : ''}
-                        ${canEdit ? `<button class="act-link danger" onclick="event.stopPropagation(); deleteCase(${c.id})" title="Delete" style="padding:4px 6px;">
+                        ${canEdit ? `<button class="act-icon danger" onclick="event.stopPropagation(); deleteCase(${c.id})" title="Delete">
                             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>` : ''}
                     </div>
@@ -256,6 +256,10 @@ function showAddForm() {
     document.getElementById('intakeDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('intakeDate').removeAttribute('readonly');
     document.getElementById('intakeDateSection').style.display = '';
+
+    // Reset marketing checkbox
+    const mktCheckbox = document.getElementById('isMarketing');
+    if (mktCheckbox) mktCheckbox.checked = false;
 
     // Hide settlement section in create mode
     document.getElementById('settlementSection').style.display = 'none';
@@ -418,8 +422,13 @@ function calculateFees() {
 
 function calculateCommission() {
     const discLegalFee = parseFloat(document.getElementById('discountedLegalFee').value) || 0;
-    const commission = discLegalFee * (USER.commission_rate / 100);
+    const mktCheckbox = document.getElementById('isMarketing');
+    const isMarketing = mktCheckbox && mktCheckbox.checked;
+    const rate = isMarketing ? 5 : USER.commission_rate;
+    const commission = discLegalFee * (rate / 100);
     document.getElementById('commission').textContent = formatCurrency(commission);
+    const label = document.getElementById('commissionLabel');
+    if (label) label.textContent = `Your Commission (${rate}%)`;
 }
 
 // Form submission
@@ -455,7 +464,8 @@ document.getElementById('caseForm').addEventListener('submit', async (e) => {
             presuit_offer: parseFloat(document.getElementById('presuitOffer').value) || 0,
             discounted_legal_fee: parseFloat(document.getElementById('discountedLegalFee').value) || 0,
             note: document.getElementById('note').value,
-            check_received: document.getElementById('checkReceived').checked
+            check_received: document.getElementById('checkReceived').checked,
+            is_marketing: document.getElementById('isMarketing') ? document.getElementById('isMarketing').checked : false
         };
     }
 
@@ -516,6 +526,8 @@ function editCase(id) {
     document.getElementById('discountedLegalFee').value = c.discounted_legal_fee;
     document.getElementById('note').value = c.note || '';
     document.getElementById('checkReceived').checked = c.check_received == 1;
+    const mktCheckbox = document.getElementById('isMarketing');
+    if (mktCheckbox) mktCheckbox.checked = c.is_marketing == 1;
 
     calculateFees();
 

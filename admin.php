@@ -58,7 +58,7 @@ $userInitial = strtoupper(substr($user['display_name'], 0, 1));
                 <a class="nav-link" data-tab="traffic">
                     <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     <span>Traffic Cases</span>
-                    <span class="nav-count muted" id="trafficRequestBadge" style="display:none;">0</span>
+                    <span class="nav-count" id="trafficRequestBadge" style="display:none;">0</span>
                 </a>
             </div>
 
@@ -137,6 +137,7 @@ $userInitial = strtoupper(substr($user['display_name'], 0, 1));
         <?php include 'app/views/admin/tabs/traffic.php'; ?>
         <?php include 'app/views/admin/modals/traffic-edit.php'; ?>
         <?php include 'app/views/admin/modals/traffic-request.php'; ?>
+        <?php include 'app/views/admin/modals/demand-request.php'; ?>
         <?php include 'app/views/admin/modals/user-form.php'; ?>
         <?php include 'app/views/admin/tabs/notifications.php'; ?>
         <?php include 'app/views/admin/modals/compose-message.php'; ?>

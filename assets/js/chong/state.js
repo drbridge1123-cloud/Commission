@@ -55,6 +55,10 @@ let currentTrafficStatusFilter = 'active';
 // Demand state
 let selectedDemandCaseId = null;
 
+// Demand requests state
+let allDemandRequests = [];
+let pendingDemandRequests = [];
+
 // Resolution type configurations
 const resolutionConfig = {
     'File and Bump': { feeRate: 33.33, commRate: 20, deductPresuit: true },
@@ -107,7 +111,7 @@ function formatCurrency(amount) {
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
     return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
 }
 

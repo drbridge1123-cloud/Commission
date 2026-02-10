@@ -91,16 +91,18 @@
                                 <th data-sort="text">Case #</th>
                                 <th data-sort="text">Court</th>
                                 <th data-sort="text">Charge</th>
+                                <th data-sort="date">Issued Date</th>
+                                <th data-sort="date">NOA Date</th>
                                 <th data-sort="date">Court Date</th>
-                                <th data-sort="text">NOA</th>
                                 <th class="c" data-sort="text">Discovery</th>
+                                <th data-sort="text">Disposition</th>
                                 <th class="c" data-sort="text">Status</th>
                                 <th data-sort="text">Requester</th>
                                 <th class="c">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="trafficTableBody">
-                            <tr><td colspan="10" class="tv3-empty">Loading...</td></tr>
+                            <tr><td colspan="12" class="tv3-empty">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -174,16 +176,26 @@
                 <!-- Commission Table -->
                 <div class="tv3-table-wrap">
                     <table class="tv3-table" id="commTrafficTable">
+                        <colgroup>
+                            <col class="col-requester">
+                            <col class="col-client">
+                            <col class="col-court">
+                            <col class="col-courtdate">
+                            <col class="col-disp">
+                            <col class="col-amount">
+                            <col class="col-paid">
+                            <col class="col-paiddate">
+                        </colgroup>
                         <thead>
                             <tr>
+                                <th data-sort="text">Requester</th>
                                 <th data-sort="text">Client</th>
                                 <th data-sort="text">Court</th>
                                 <th data-sort="date">Court Date</th>
-                                <th data-sort="date">Resolved</th>
                                 <th data-sort="text">Disposition</th>
-                                <th data-sort="text">Requester</th>
-                                <th class="r" data-sort="number">Amount</th>
+                                <th style="text-align:right;" data-sort="number">Amount</th>
                                 <th class="c" data-sort="text">Paid</th>
+                                <th data-sort="date">Paid Date</th>
                             </tr>
                         </thead>
                         <tbody id="commTrafficTableBody">

@@ -31,6 +31,7 @@ function switchTab(tab) {
         loadReferrals();
         loadReferralSummary();
     } else if (tab === 'cases') {
+        initMonthDropdowns();
         loadCases();
     } else if (tab === 'reports') {
         initReportDropdowns();
@@ -43,6 +44,8 @@ function switchTab(tab) {
     } else if (tab === 'goals') {
         initTeamGoalsYearFilter();
         loadTeamGoals();
+    } else if (tab === 'attorney-progress') {
+        initAttorneyProgress();
     }
 }
 

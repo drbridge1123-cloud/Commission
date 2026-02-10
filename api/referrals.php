@@ -32,10 +32,12 @@ if ($method === 'GET') {
         $caseManagerId = $_GET['case_manager_id'] ?? 'all';
         $month = intval($_GET['month'] ?? 0);
 
-        $sql = "SELECT r.*, u.display_name as case_manager_name, cr.display_name as created_by_name
+        $sql = "SELECT r.*, u.display_name as case_manager_name, cr.display_name as created_by_name,
+                    ld.display_name as lead_name
                 FROM referral_entries r
                 LEFT JOIN users u ON r.case_manager_id = u.id
                 LEFT JOIN users cr ON r.created_by = cr.id
+                LEFT JOIN users ld ON r.lead_id = ld.id
                 WHERE r.deleted_at IS NULL";
         $params = [];
 
@@ -138,13 +140,14 @@ if ($method === 'POST') {
     $nextRow = (int)$stmt->fetch()['next_row'];
 
     $caseManagerId = !empty($data['case_manager_id']) ? intval($data['case_manager_id']) : null;
+    $leadId = !empty($data['lead_id']) ? intval($data['lead_id']) : null;
 
     $stmt = $pdo->prepare("
         INSERT INTO referral_entries (
             row_number, signed_date, file_number, client_name, date_of_loss,
             referred_by, referred_to_provider, referred_to_body_shop,
-            referral_type, case_manager_id, remark, entry_month, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            referral_type, lead_id, case_manager_id, remark, entry_month, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -157,6 +160,7 @@ if ($method === 'POST') {
         sanitizeString($data['referred_to_provider'] ?? '', 200),
         sanitizeString($data['referred_to_body_shop'] ?? '', 200),
         sanitizeString($data['referral_type'] ?? '', 100),
+        $leadId,
         $caseManagerId,
         sanitizeString($data['remark'] ?? '', 1000),
         $entryMonth,
@@ -191,11 +195,15 @@ if ($method === 'PUT') {
         ? (!empty($data['case_manager_id']) ? intval($data['case_manager_id']) : null)
         : $entry['case_manager_id'];
 
+    $leadId = isset($data['lead_id'])
+        ? (!empty($data['lead_id']) ? intval($data['lead_id']) : null)
+        : $entry['lead_id'];
+
     $stmt = $pdo->prepare("
         UPDATE referral_entries SET
             signed_date = ?, file_number = ?, client_name = ?, date_of_loss = ?,
             referred_by = ?, referred_to_provider = ?, referred_to_body_shop = ?,
-            referral_type = ?, case_manager_id = ?, remark = ?
+            referral_type = ?, lead_id = ?, case_manager_id = ?, remark = ?
         WHERE id = ?
     ");
 
@@ -208,6 +216,7 @@ if ($method === 'PUT') {
         sanitizeString($data['referred_to_provider'] ?? $entry['referred_to_provider'], 200),
         sanitizeString($data['referred_to_body_shop'] ?? $entry['referred_to_body_shop'], 200),
         sanitizeString($data['referral_type'] ?? $entry['referral_type'], 100),
+        $leadId,
         $caseManagerId,
         sanitizeString($data['remark'] ?? $entry['remark'], 1000),
         $entryId

@@ -2,6 +2,20 @@
  * ChongDashboard - Edit case modal functions.
  */
 
+function toggleCollapseSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    section.classList.toggle('expanded');
+}
+
+function setCollapseState(sectionId, expanded) {
+    const section = document.getElementById(sectionId);
+    if (expanded) {
+        section.classList.add('expanded');
+    } else {
+        section.classList.remove('expanded');
+    }
+}
+
 async function openEditCaseModal(caseId) {
     let caseData = commissionsData.find(c => c.id == caseId) ||
                   demandCasesData.find(c => c.id == caseId) ||
@@ -29,8 +43,31 @@ async function openEditCaseModal(caseId) {
     document.getElementById('editPresuitOffer').value = caseData.presuit_offer || '';
     document.getElementById('editResolutionType').value = caseData.resolution_type || '';
     document.getElementById('editAssignedDate').value = caseData.assigned_date || '';
+    document.getElementById('editDemandOutDate').value = caseData.demand_out_date || '';
+    document.getElementById('editNegotiateDate').value = caseData.negotiate_date || '';
     document.getElementById('editNote').value = caseData.note || '';
     document.getElementById('editStage').value = caseData.stage || '';
+
+    // Settlement section: expand if has data
+    const hasSettlement = parseFloat(caseData.settled) > 0 || parseFloat(caseData.discounted_legal_fee) > 0;
+    setCollapseState('editSettlementSection', hasSettlement);
+
+    // Top Offer info section (read-only): show + expand if has data
+    const topOfferSection = document.getElementById('editTopOfferSection');
+    if (caseData.top_offer_date) {
+        topOfferSection.style.display = '';
+        document.getElementById('editTopOfferAmount').value = formatCurrency(parseFloat(caseData.top_offer_amount) || 0);
+        document.getElementById('editTopOfferDate').value = caseData.top_offer_date;
+        document.getElementById('editTopOfferNote').value = caseData.top_offer_note || '-';
+        if (caseData.top_offer_assignee_name) {
+            document.getElementById('editTopOfferAssignee').value = caseData.top_offer_assignee_name;
+        } else {
+            document.getElementById('editTopOfferAssignee').value = caseData.top_offer_assignee_id ? `User #${caseData.top_offer_assignee_id}` : '-';
+        }
+        setCollapseState('editTopOfferSection', true);
+    } else {
+        topOfferSection.style.display = 'none';
+    }
 
     toggleEditPhaseFields();
     calculateEditCommission();
@@ -47,7 +84,8 @@ async function setupDeadlineSection(caseData) {
     const pendingExtensionAlert = document.getElementById('pendingExtensionAlert');
 
     if (caseData.phase === 'demand' && caseData.demand_deadline) {
-        deadlineSection.style.display = 'block';
+        deadlineSection.style.display = '';
+        setCollapseState('deadlineSection', false);
 
         document.getElementById('editCurrentDeadline').value = caseData.demand_deadline;
 
@@ -140,7 +178,7 @@ async function submitDeadlineExtension() {
 function toggleEditPhaseFields() {
     const phase = document.getElementById('editPhase').value;
     document.getElementById('editLitigationFields').style.display = phase === 'litigation' ? 'block' : 'none';
-    document.getElementById('editStageRow').style.display = phase === 'demand' ? 'flex' : 'none';
+    document.getElementById('editStageRow').style.display = phase === 'demand' ? '' : 'none';
     calculateEditCommission();
 }
 
@@ -173,6 +211,8 @@ async function submitEditCase(event) {
         settled: parseFloat(document.getElementById('editSettled').value) || 0,
         discounted_legal_fee: parseFloat(document.getElementById('editDiscLegalFee').value) || 0,
         assigned_date: document.getElementById('editAssignedDate').value,
+        demand_out_date: document.getElementById('editDemandOutDate').value || null,
+        negotiate_date: document.getElementById('editNegotiateDate').value || null,
         note: document.getElementById('editNote').value
     };
 

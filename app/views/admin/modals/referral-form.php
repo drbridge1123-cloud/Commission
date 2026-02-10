@@ -46,8 +46,12 @@
                         </div>
                         <div class="m-row cols-2">
                             <div>
-                                <label class="m-label">Referral Type</label>
-                                <input type="text" id="adminRefType" class="m-input" placeholder="e.g., Pedestrian">
+                                <label class="m-label">Lead</label>
+                                <select id="adminRefLead" class="m-input">
+                                    <option value="">Select...</option>
+                                    <option value="office">Office</option>
+                                    <option value="prior_client">Prior Client</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="m-label">Case Manager</label>

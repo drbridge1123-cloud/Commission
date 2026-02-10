@@ -49,8 +49,9 @@ function renderTeamGoals(employees, year) {
     // Update summary cards
     document.getElementById('teamCasesTotal').textContent = totalCases;
     document.getElementById('teamCasesTarget').textContent = `Target: ${totalTargetCases}`;
-    document.getElementById('teamFeeTotal').textContent = '$' + totalFee.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    document.getElementById('teamFeeTarget').textContent = 'Target: $' + totalTargetFee.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const teamFeePercent = totalTargetFee > 0 ? ((totalFee / totalTargetFee) * 100).toFixed(1) : '0.0';
+    document.getElementById('teamFeeTotal').textContent = teamFeePercent + '%';
+    document.getElementById('teamFeeTarget').textContent = '';
 
     // Calculate team pace
     const monthsElapsed = new Date().getMonth() + 1;
@@ -98,7 +99,7 @@ function renderTeamGoals(employees, year) {
                 </div>
                 <div style="text-align: right; margin-top: 4px;">
                     <span style="font-size: 11px; color: ${casesOnPace ? '#10b981' : '#f59e0b'}; font-weight: 500;">
-                        ${casesOnPace ? 'On pace' : `Expected: ${expectedEmpCases} by now`}
+                        ${casesOnPace ? 'On pace' : 'Behind'}
                     </span>
                 </div>
             </div>
@@ -107,14 +108,14 @@ function renderTeamGoals(employees, year) {
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                     <span style="font-size: 12px; color: #8b8fa3;">Legal Fee Goal</span>
-                    <span style="font-size: 12px; font-weight: 600;">$${actualFee.toLocaleString('en-US', {maximumFractionDigits: 0})} / $${targetFee.toLocaleString('en-US', {maximumFractionDigits: 0})}</span>
+                    <span style="font-size: 12px; font-weight: 600;">${feePercent.toFixed(1)}%</span>
                 </div>
                 <div style="height: 8px; background: #f0f1f3; border-radius: 4px; overflow: hidden;">
                     <div style="height: 100%; width: ${feePercent}%; background: ${feeOnPace ? '#6366f1' : '#f59e0b'}; border-radius: 4px; transition: width 0.3s;"></div>
                 </div>
                 <div style="text-align: right; margin-top: 4px;">
                     <span style="font-size: 11px; color: ${feeOnPace ? '#6366f1' : '#f59e0b'}; font-weight: 500;">
-                        ${feePercent.toFixed(1)}%
+                        ${feeOnPace ? 'On pace' : 'Behind'}
                     </span>
                 </div>
             </div>

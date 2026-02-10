@@ -259,3 +259,136 @@ function countByMonth(cases, dateField, year, month) {
         return d.getFullYear() === parseInt(year) && (d.getMonth() + 1) === month;
     }).length;
 }
+
+// ============================================
+// Demand Requests
+// ============================================
+
+async function loadMyDemandRequests() {
+    try {
+        const result = await apiCall('api/demand_requests.php');
+        myDemandRequests = result.requests || [];
+        renderMyDemandRequests();
+        updateDemandRequestBadge();
+    } catch (err) {
+        console.error('Error loading demand requests:', err);
+    }
+}
+
+function updateDemandRequestBadge() {
+    const pending = myDemandRequests.filter(r => r.status === 'pending').length;
+    const badge = document.getElementById('plPillDemandReqCount');
+    if (badge) {
+        if (pending > 0) {
+            badge.textContent = pending;
+            badge.style.display = '';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function renderMyDemandRequests() {
+    const tbody = document.getElementById('plDemandReqBody');
+    if (!tbody) return;
+
+    document.getElementById('plDemandReqCount').textContent = myDemandRequests.length;
+
+    if (myDemandRequests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">No demand requests sent yet</td></tr>';
+        return;
+    }
+
+    const fmtD = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+
+    tbody.innerHTML = myDemandRequests.map(r => {
+        const statusColors = {
+            'pending': { bg: '#fef3c7', color: '#92400e' },
+            'accepted': { bg: '#d1fae5', color: '#065f46' },
+            'denied': { bg: '#fee2e2', color: '#991b1b' }
+        };
+        const sc = statusColors[r.status] || { bg: '#f3f4f6', color: '#6b7280' };
+        const statusBadge = `<span class="stat-badge" style="background:${sc.bg};color:${sc.color};font-size:11px;padding:2px 8px;border-radius:10px;">${r.status}</span>`;
+
+        const reasonText = r.status === 'denied' && r.deny_reason
+            ? `<span style="color:#dc2626;font-size:11px;">${escapeHtml(r.deny_reason)}</span>`
+            : '<span style="color:#c4c7d0;">—</span>';
+
+        const deleteBtn = r.status === 'pending'
+            ? `<button onclick="deleteMyDemandRequest(${r.id}, '${escapeHtml(r.client_name)}')" class="f-btn" style="font-size:10px;padding:2px 8px;background:#dc2626;color:#fff;border:none;">Del</button>`
+            : '';
+
+        return `<tr>
+            <td style="font-size:12px;">${fmtD(r.created_at)}</td>
+            <td style="font-weight:500;">${escapeHtml(r.client_name)}</td>
+            <td style="font-family:monospace;font-size:11px;">${escapeHtml(r.case_number || '-')}</td>
+            <td>${escapeHtml(r.case_type || 'Auto')}</td>
+            <td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.note || '')}">${escapeHtml(r.note || '—')}</td>
+            <td class="c">${statusBadge}</td>
+            <td>${reasonText}</td>
+            <td class="c">${deleteBtn}</td>
+        </tr>`;
+    }).join('');
+}
+
+function openAdminDemandRequestForm() {
+    document.getElementById('adminDemandRequestForm').reset();
+    openModal('adminDemandRequestModal');
+}
+
+async function submitAdminDemandRequest(e) {
+    e.preventDefault();
+
+    const data = {
+        client_name: document.getElementById('admDemReqClientName').value.trim(),
+        case_number: document.getElementById('admDemReqCaseNumber').value.trim(),
+        case_type: document.getElementById('admDemReqCaseType').value,
+        note: document.getElementById('admDemReqNote').value.trim()
+    };
+
+    if (!data.client_name) {
+        alert('Client name is required');
+        return;
+    }
+
+    try {
+        const result = await apiCall('api/demand_requests.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (result.success) {
+            closeModal('adminDemandRequestModal');
+            document.getElementById('adminDemandRequestForm').reset();
+            loadMyDemandRequests();
+            alert('Demand request sent to Chong successfully!');
+        } else {
+            alert(result.error || 'Error sending request');
+        }
+    } catch (err) {
+        console.error('Error submitting demand request:', err);
+        alert(err.message || 'Error sending request');
+    }
+}
+
+async function deleteMyDemandRequest(id, clientName) {
+    if (!confirm(`Delete demand request for "${clientName}"?`)) return;
+
+    try {
+        const result = await apiCall('api/demand_requests.php', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+
+        if (result.success) {
+            loadMyDemandRequests();
+        } else {
+            alert(result.error || 'Failed to delete request');
+        }
+    } catch (err) {
+        console.error('Error deleting demand request:', err);
+        alert('Error deleting request');
+    }
+}

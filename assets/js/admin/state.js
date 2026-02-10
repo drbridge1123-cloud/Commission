@@ -52,6 +52,9 @@ let currentAnalyticsSubTab = 'overview';
 // Pipeline sub-tab state
 let currentPipelineSubTab = 'pipeline';
 
+// Demand requests state
+let myDemandRequests = [];
+
 // Chart instances
 let perfChartInstance = null;
 let trendChartInstance = null;

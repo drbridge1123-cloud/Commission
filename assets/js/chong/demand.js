@@ -2,20 +2,129 @@
  * ChongDashboard - Demand tab functions.
  */
 
-function toggleSettlementSection(btn) {
-    const fields = document.getElementById('newDemandSettlementFields');
-    const isHidden = fields.style.display === 'none';
-    fields.style.display = isHidden ? '' : 'none';
-    btn.classList.toggle('active', isHidden);
+// ============================================
+// Demand Requests (Accept/Deny from Jimi/Admin)
+// ============================================
 
-    // Clear fields when collapsing
-    if (!isHidden) {
-        const form = document.getElementById('newDemandForm');
-        if (form.settled) form.settled.value = '';
-        if (form.discounted_legal_fee) form.discounted_legal_fee.value = '';
-        if (form.commission_display) form.commission_display.value = '';
+async function loadDemandRequests() {
+    try {
+        const result = await apiCall('api/demand_requests.php?status=all');
+        allDemandRequests = result.requests || [];
+        pendingDemandRequests = allDemandRequests.filter(r => r.status === 'pending');
+
+        // Update sidebar badge
+        const badge = document.getElementById('demandBadge');
+        if (pendingDemandRequests.length > 0) {
+            badge.textContent = pendingDemandRequests.length;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        renderPendingDemandRequests();
+    } catch (err) {
+        console.error('Error loading demand requests:', err);
     }
 }
+
+function renderPendingDemandRequests() {
+    const section = document.getElementById('pendingDemandRequestsSection');
+    const container = document.getElementById('pendingDemandRequestsCards');
+
+    if (!pendingDemandRequests.length) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '\u2014';
+
+    container.innerHTML = pendingDemandRequests.map(r => {
+        const reqName = r.requester_name || '\u2014';
+        return `
+            <div class="tv3-pending-card">
+                <div class="tv3-pending-card-grid">
+                    <div>
+                        <div class="tv3-pending-label">Requester</div>
+                        <div class="tv3-pending-val">${escapeHtml(reqName)}</div>
+                    </div>
+                    <div>
+                        <div class="tv3-pending-label">Client</div>
+                        <div class="tv3-pending-val">${escapeHtml(r.client_name)}</div>
+                    </div>
+                    <div>
+                        <div class="tv3-pending-label">Case #</div>
+                        <div class="tv3-pending-val dim">${escapeHtml(r.case_number || '\u2014')}</div>
+                    </div>
+                    <div>
+                        <div class="tv3-pending-label">Case Type</div>
+                        <div class="tv3-pending-val dim">${escapeHtml(r.case_type || 'Auto')}</div>
+                    </div>
+                    <div>
+                        <div class="tv3-pending-label">Submitted</div>
+                        <div class="tv3-pending-val dim">${fmtDate(r.created_at)}</div>
+                    </div>
+                    <div>
+                        <div class="tv3-pending-label">Note</div>
+                        <div class="tv3-pending-val dim" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(r.note || '')}">${escapeHtml(r.note || '\u2014')}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="tv3-btn-accept" onclick="acceptDemandRequest(${r.id})">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                        Accept
+                    </button>
+                    <button class="tv3-btn-deny" onclick="denyDemandRequest(${r.id}, '${escapeJs(r.client_name)}')">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                        Deny
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function acceptDemandRequest(id) {
+    try {
+        const result = await apiCall('api/demand_requests.php', 'PUT', { id, action: 'accept' });
+        if (result.success) {
+            showToast('Demand request accepted', 'success');
+            loadDemandRequests();
+            loadDemandCases();
+            loadDashboard();
+        } else {
+            alert(result.error || 'Error accepting request');
+        }
+    } catch (err) {
+        console.error('Error accepting demand request:', err);
+        alert('Error accepting request');
+    }
+}
+
+async function denyDemandRequest(id, clientName) {
+    const reason = prompt(`Reason for denying "${clientName}":`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+        alert('Deny reason is required');
+        return;
+    }
+    try {
+        const result = await apiCall('api/demand_requests.php', 'PUT', { id, action: 'deny', deny_reason: reason.trim() });
+        if (result.success) {
+            showToast('Demand request denied', 'success');
+            loadDemandRequests();
+        } else {
+            alert(result.error || 'Error denying request');
+        }
+    } catch (err) {
+        console.error('Error denying demand request:', err);
+        alert('Error denying request');
+    }
+}
+
+// ============================================
+// Demand Cases
+// ============================================
 
 async function loadDemandCases() {
     const result = await apiCall('api/chong_cases.php?phase=demand');
@@ -31,11 +140,13 @@ function updateDemandStats(cases) {
     const total = cases.length;
 
     const dueIn2Weeks = cases.filter(c => {
+        if (c.top_offer_date) return false;
         if (!c.deadline_status || c.deadline_status.days === null) return false;
         return c.deadline_status.days >= 0 && c.deadline_status.days <= 14;
     }).length;
 
     const overdue = cases.filter(c => {
+        if (c.top_offer_date) return false;
         if (!c.deadline_status || c.deadline_status.days === null) return false;
         return c.deadline_status.days < 0;
     }).length;
@@ -48,18 +159,22 @@ function updateDemandStats(cases) {
 function renderDemandTable(cases) {
     const tbody = document.getElementById('demandTableBody');
     if (cases.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 40px; color:#8b8fa3;">No demand cases</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 40px; color:#8b8fa3;">No demand cases</td></tr>';
         return;
     }
 
     tbody.innerHTML = cases.map(c => {
         const deadlineStatus = c.deadline_status || {};
-        const daysClass = deadlineStatus.class || '';
-        const daysText = deadlineStatus.message || '-';
+        let daysClass = deadlineStatus.class || '';
+        let daysText = deadlineStatus.message || '-';
 
         // Determine row highlight class based on days left
         let rowClass = '';
-        if (deadlineStatus.days !== undefined && deadlineStatus.days !== null) {
+        if (c.top_offer_date) {
+            // Top offer received - show completed badge, no highlight
+            daysText = '<span class="ink-badge" style="background:#d1fae5;color:#059669;">Completed</span>';
+            daysClass = '';
+        } else if (deadlineStatus.days !== undefined && deadlineStatus.days !== null) {
             if (deadlineStatus.days < 0) {
                 rowClass = 'row-overdue';  // Red - overdue
             } else if (deadlineStatus.days <= 14) {
@@ -85,6 +200,25 @@ function renderDemandTable(cases) {
 
         const isSelected = selectedDemandCaseId === c.id ? 'selected-row' : '';
 
+        // Inline checkbox cells for Demand Out and Negotiate
+        const demandOutCell = c.demand_out_date
+            ? `<td class="date-check" onclick="toggleDemandDate(event,${c.id},'demand_out_date')" style="cursor:pointer;white-space:nowrap;"><span style="color:#059669;font-weight:600;">&#10003;</span> <span style="font-size:13px;color:#3d3f4e;">${formatDateShort(c.demand_out_date)}</span></td>`
+            : `<td class="date-check" onclick="toggleDemandDate(event,${c.id},'demand_out_date')" style="cursor:pointer;text-align:center;"><span style="color:#c4c7d0;font-size:15px;">&#9744;</span></td>`;
+
+        const negotiateCell = c.negotiate_date
+            ? `<td class="date-check" onclick="toggleDemandDate(event,${c.id},'negotiate_date')" style="cursor:pointer;white-space:nowrap;"><span style="color:#059669;font-weight:600;">&#10003;</span> <span style="font-size:13px;color:#3d3f4e;">${formatDateShort(c.negotiate_date)}</span></td>`
+            : `<td class="date-check" onclick="toggleDemandDate(event,${c.id},'negotiate_date')" style="cursor:pointer;text-align:center;"><span style="color:#c4c7d0;font-size:15px;">&#9744;</span></td>`;
+
+        // Top Offer cell
+        const topOfferCell = c.top_offer_date
+            ? `<td style="white-space:nowrap;"><span style="color:#059669;font-weight:600;">&#10003;</span> <span style="font-size:13px;color:#3d3f4e;">${formatDateShort(c.top_offer_date)}</span></td>`
+            : `<td style="text-align:center;color:#c4c7d0;">-</td>`;
+
+        // Top button only shown if no top offer yet
+        const topBtn = !c.top_offer_date
+            ? `<button class="act-btn top-offer" data-action="top-offer" data-id="${c.id}" data-case="${escapeHtml(c.case_number)}" data-client="${escapeHtml(c.client_name)}">Top</button>`
+            : '';
+
         return `
             <tr class="${rowClass} ${isSelected} clickable-row" data-id="${c.id}" data-stage="${c.stage || ''}" style="cursor: pointer;">
                 <td style="width:0;padding:0;border:none;"></td>
@@ -93,12 +227,15 @@ function renderDemandTable(cases) {
                 <td>${escapeHtml(c.case_type || '-')}</td>
                 <td>${stageBadge}</td>
                 <td>${formatDate(c.assigned_date)}</td>
+                ${demandOutCell}
+                ${negotiateCell}
+                ${topOfferCell}
                 <td>${formatDate(c.demand_deadline)}</td>
                 <td class="${daysClass}">${daysText}</td>
                 <td>${statusBadge}</td>
                 <td class="action-cell" style="text-align: center;">
                     <div class="action-group center">
-                        <button class="act-btn edit" data-action="edit" data-id="${c.id}">Edit</button>
+                        ${topBtn}
                         <button class="act-btn settle" data-action="settle-demand" data-id="${c.id}" data-case="${escapeHtml(c.case_number)}" data-client="${escapeHtml(c.client_name)}">Settle</button>
                         <button class="act-btn to-lit" data-action="to-litigation" data-id="${c.id}" data-case="${escapeHtml(c.case_number)}" data-client="${escapeHtml(c.client_name)}">To Lit</button>
                     </div>
@@ -107,13 +244,12 @@ function renderDemandTable(cases) {
         `;
     }).join('');
 
-    // Add row click event for selecting
+    // Add row click event - open edit modal
     tbody.querySelectorAll('.clickable-row').forEach(row => {
         row.addEventListener('click', function(e) {
-            if (!e.target.closest('.action-cell') && !e.target.closest('button')) {
+            if (!e.target.closest('.action-cell') && !e.target.closest('button') && !e.target.closest('.date-check')) {
                 const id = parseInt(this.dataset.id);
-                const stage = this.dataset.stage;
-                selectDemandRow(id, stage);
+                openEditCaseModal(id);
             }
         });
     });
@@ -131,18 +267,22 @@ function renderDemandTable(cases) {
                 openEditCaseModal(parseInt(id));
             } else if (action === 'settle-demand') {
                 openSettleDemandModal(id, caseNum, client);
+            } else if (action === 'top-offer') {
+                openTopOfferModal(id, caseNum, client);
             } else if (action === 'to-litigation') {
                 openToLitigationModal(id, caseNum, client);
             }
         });
     });
 
-    // Update footer using deadline_status from API
+    // Update footer using deadline_status from API (exclude completed top offer cases)
     const dueIn2Weeks = cases.filter(c => {
+        if (c.top_offer_date) return false;
         if (!c.deadline_status || c.deadline_status.days === null) return false;
         return c.deadline_status.days >= 0 && c.deadline_status.days <= 14;
     }).length;
     const overdue = cases.filter(c => {
+        if (c.top_offer_date) return false;
         if (!c.deadline_status || c.deadline_status.days === null) return false;
         return c.deadline_status.days < 0;
     }).length;
@@ -179,8 +319,8 @@ function updateDemandAlertBar(cases) {
     const bar = document.getElementById('demandAlertBar');
     if (!bar) return;
 
-    const overdue = cases.filter(c => c.deadline_status && c.deadline_status.days < 0).length;
-    const critical = cases.filter(c => c.deadline_status && c.deadline_status.days >= 0 && c.deadline_status.days <= 14).length;
+    const overdue = cases.filter(c => !c.top_offer_date && c.deadline_status && c.deadline_status.days < 0).length;
+    const critical = cases.filter(c => !c.top_offer_date && c.deadline_status && c.deadline_status.days >= 0 && c.deadline_status.days <= 14).length;
 
     if (overdue > 0) {
         bar.className = 'urgent-bar critical';
@@ -282,6 +422,8 @@ function sortDemandCases(column) {
         }
     });
 
+    const dateColumns = ['assigned_date', 'demand_out_date', 'negotiate_date', 'top_offer_date', 'demand_deadline'];
+
     demandCasesData.sort((a, b) => {
         let valA = a[column];
         let valB = b[column];
@@ -292,11 +434,11 @@ function sortDemandCases(column) {
         if (column === 'days_left') {
             valA = a.demand_deadline ? Math.ceil((new Date(a.demand_deadline) - new Date()) / (1000 * 60 * 60 * 24)) : 999;
             valB = b.demand_deadline ? Math.ceil((new Date(b.demand_deadline) - new Date()) / (1000 * 60 * 60 * 24)) : 999;
-        }
-
-        if (['days_left'].includes(column)) {
             valA = parseFloat(valA) || 0;
             valB = parseFloat(valB) || 0;
+        } else if (dateColumns.includes(column)) {
+            valA = valA ? new Date(valA + 'T00:00:00').getTime() : 0;
+            valB = valB ? new Date(valB + 'T00:00:00').getTime() : 0;
         } else {
             valA = String(valA).toLowerCase();
             valB = String(valB).toLowerCase();
@@ -311,12 +453,6 @@ function sortDemandCases(column) {
 }
 
 // Demand modal functions
-function openNewDemandModal() {
-    document.getElementById('newDemandForm').reset();
-    document.querySelector('#newDemandForm [name="assigned_date"]').value = new Date().toISOString().split('T')[0];
-    openModal('newDemandModal');
-}
-
 function openSettleDemandModal(caseId, caseNumber, clientName) {
     const form = document.getElementById('settleDemandForm');
     form.reset();
@@ -337,13 +473,6 @@ function openToLitigationModal(caseId, caseNumber, clientName) {
 }
 
 // Demand calculation functions
-function calculateDemandCommission() {
-    const form = document.getElementById('newDemandForm');
-    const discLegalFee = parseFloat(form.discounted_legal_fee.value) || 0;
-    const commission = discLegalFee * 0.05;
-    form.commission_display.value = formatCurrency(commission);
-}
-
 function calculateSettleDemandCommission() {
     const form = document.getElementById('settleDemandForm');
     const discLegalFee = parseFloat(form.discounted_legal_fee.value) || 0;
@@ -366,34 +495,6 @@ function updateSettleDemandLegalFee() {
 }
 
 // Demand form submissions
-async function submitNewDemand(event) {
-    event.preventDefault();
-    const form = event.target;
-    const data = {
-        case_number: form.case_number.value,
-        client_name: form.client_name.value,
-        case_type: form.case_type.value,
-        phase: form.phase.value,
-        stage: form.stage.value,
-        assigned_date: form.assigned_date.value,
-        settled: parseFloat(form.settled.value) || 0,
-        discounted_legal_fee: parseFloat(form.discounted_legal_fee.value) || 0,
-        month: form.month.value,
-        note: form.note.value
-    };
-
-    const result = await apiCall('api/chong_cases.php', 'POST', data);
-    if (result.success) {
-        closeModal('newDemandModal');
-        loadDashboard();
-        loadDemandCases();
-        loadCommissions();
-        alert('Demand case added successfully!');
-    } else {
-        alert('Error: ' + (result.error || 'Failed to add case'));
-    }
-}
-
 async function submitSettleDemand(event) {
     event.preventDefault();
     const form = event.target;
@@ -437,5 +538,113 @@ async function submitToLitigation(event) {
         alert('Case moved to Litigation!');
     } else {
         alert('Error: ' + (result.error || 'Failed to move case'));
+    }
+}
+
+// Inline date checkbox toggle for Demand Out / Negotiate columns
+async function toggleDemandDate(event, caseId, field) {
+    event.stopPropagation();
+    const c = demandCasesData.find(x => x.id == caseId);
+    if (!c) return;
+
+    const currentVal = c[field];
+    const newDate = currentVal ? null : new Date().toISOString().split('T')[0];
+    const fieldLabel = field === 'demand_out_date' ? 'Demand Out' : 'Negotiate';
+    const action = newDate ? `Mark "${fieldLabel}" as today?` : `Clear "${fieldLabel}" date?`;
+    if (!confirm(action)) return;
+
+    const result = await apiCall(`api/chong_cases.php?id=${caseId}`, 'PUT', {
+        action: 'stage_date_toggle',
+        field: field,
+        date: newDate,
+        csrf_token: csrfToken
+    });
+
+    if (result.success) {
+        c[field] = newDate;
+        if (newDate) {
+            const stageMap = { demand_out_date: 'demand_sent', negotiate_date: 'negotiate' };
+            c.stage = stageMap[field];
+        }
+        renderDemandTable(demandCasesData);
+    } else {
+        showToast(result.error || 'Failed to update', 'error');
+    }
+}
+
+function formatDateShort(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+// Top Offer modal functions
+let cachedUsers = null;
+
+async function openTopOfferModal(caseId, caseNumber, clientName) {
+    document.getElementById('topOfferCaseId').value = caseId;
+    document.getElementById('topOfferCaseInfo').textContent = `${caseNumber} - ${clientName}`;
+    document.getElementById('topOfferAmount').value = '';
+    document.getElementById('topOfferNote').value = '';
+
+    // Load users for assignee dropdown (cache after first load)
+    const select = document.getElementById('topOfferAssignee');
+    if (!cachedUsers) {
+        const result = await apiCall('api/users.php');
+        if (result.users) {
+            cachedUsers = result.users.filter(u => u.is_active !== 0);
+        }
+    }
+    if (cachedUsers) {
+        select.innerHTML = '<option value="">Select Employee...</option>';
+        cachedUsers.forEach(u => {
+            select.innerHTML += `<option value="${u.id}">${escapeHtml(u.display_name)}</option>`;
+        });
+    }
+
+    openModal('topOfferModal');
+}
+
+async function submitTopOffer(event) {
+    event.preventDefault();
+    const caseId = document.getElementById('topOfferCaseId').value;
+    const amount = parseFloat(document.getElementById('topOfferAmount').value);
+    const assigneeId = document.getElementById('topOfferAssignee').value;
+    const note = document.getElementById('topOfferNote').value;
+
+    if (!amount || amount <= 0) {
+        alert('Please enter a valid top offer amount.');
+        return;
+    }
+    if (!assigneeId) {
+        alert('Please select an employee to assign.');
+        return;
+    }
+
+    const result = await apiCall(`api/chong_cases.php?id=${caseId}`, 'PUT', {
+        action: 'submit_top_offer',
+        top_offer_amount: amount,
+        assignee_id: parseInt(assigneeId),
+        note: note.trim(),
+        csrf_token: csrfToken
+    });
+
+    if (result.success) {
+        closeModal('topOfferModal');
+        // Update local data
+        const c = demandCasesData.find(x => x.id == caseId);
+        if (c) {
+            c.top_offer_amount = amount;
+            c.top_offer_date = result.top_offer_date;
+            c.top_offer_assignee_id = parseInt(assigneeId);
+            c.top_offer_note = note.trim();
+            c.deadline_status = { class: 'deadline-complete', message: 'Completed', days: null, urgent: false };
+        }
+        renderDemandTable(demandCasesData);
+        updateDemandStats(demandCasesData);
+        updateDemandAlertBar(demandCasesData);
+        showToast('Top offer submitted successfully!', 'success');
+    } else {
+        alert('Error: ' + (result.error || 'Failed to submit top offer'));
     }
 }

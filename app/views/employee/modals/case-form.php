@@ -40,7 +40,7 @@
                             <div>
                                 <label class="m-label">Case Type</label>
                                 <select id="caseType" class="m-input">
-                                    <option value="Auto Accident">Auto Accident</option>
+                                    <option value="Auto">Auto</option>
                                     <option value="Pedestrian">Pedestrian</option>
                                     <option value="Motorcycle">Motorcycle</option>
                                     <option value="Bicycle">Bicycle</option>
@@ -125,7 +125,7 @@
 
                             <!-- Commission Card -->
                             <div class="m-commission-card">
-                                <span class="m-commission-label">Your Commission (<?= $user['commission_rate'] ?>%)</span>
+                                <span class="m-commission-label" id="commissionLabel">Your Commission (<?= $user['commission_rate'] ?>%)</span>
                                 <span id="commission" class="m-commission-value">$0.00</span>
                             </div>
                         </div>
@@ -143,6 +143,12 @@
                             <input type="checkbox" id="checkReceived">
                             <label for="checkReceived">Check Received</label>
                         </div>
+                        <?php if (!$user['is_attorney']): ?>
+                        <div class="m-checkbox-row">
+                            <input type="checkbox" id="isMarketing" onchange="calculateCommission()">
+                            <label for="isMarketing">Marketing Case (5%)</label>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 

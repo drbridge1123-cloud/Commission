@@ -11,6 +11,13 @@
     --ink-amber: #d97706;
 }
 
+/* Filter selects: auto width in flex row */
+.filters select.f-select { width: auto !important; flex: 0 0 auto; }
+.filters input.f-search,
+.filters input[type="text"].f-search { width: 150px !important; flex: 0 0 auto; }
+.filters .f-btn,
+.filters .ink-btn { flex: 0 0 auto; }
+
 /* Employee Table Overrides */
 .tbl { width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; }
 .tbl thead th { padding: 10px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--text-500); background: var(--bg); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }

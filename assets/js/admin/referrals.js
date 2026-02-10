@@ -39,7 +39,7 @@ async function loadAdminRefManagerFilter() {
             sel.appendChild(opt);
         });
 
-        // Also populate the admin referral form Case Manager dropdown
+        // Also populate the admin referral form Case Manager + Lead dropdowns
         const formSel = document.getElementById('adminRefCaseManager');
         if (formSel) {
             while (formSel.options.length > 1) formSel.remove(1);
@@ -48,6 +48,16 @@ async function loadAdminRefManagerFilter() {
                 opt.value = u.id;
                 opt.textContent = u.display_name;
                 formSel.appendChild(opt);
+            });
+        }
+        const leadSel = document.getElementById('adminRefLead');
+        if (leadSel) {
+            while (leadSel.options.length > 3) leadSel.remove(3);
+            adminRefUsersCache.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = u.display_name;
+                leadSel.appendChild(opt);
             });
         }
     } catch (err) {
@@ -92,7 +102,7 @@ function renderAdminReferrals() {
 
         return `<tr>
             <td class="c" style="color: #8b8fa3;">${r.row_number || ''}</td>
-            <td>${escapeHtml(r.referral_type || '')}</td>
+            <td style="font-weight: 500;">${escapeHtml(r.lead_name || r.referral_type || '')}</td>
             <td style="white-space: nowrap;">${escapeHtml(signed)}</td>
             <td style="font-family: monospace; font-size: 11px;">${escapeHtml(r.file_number || '')}</td>
             <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(r.client_name)}">${escapeHtml(r.client_name)}</td>
@@ -136,7 +146,7 @@ function openAdminReferralForm() {
     document.getElementById('adminRefReferredBy').value = '';
     document.getElementById('adminRefProvider').value = '';
     document.getElementById('adminRefBodyShop').value = '';
-    document.getElementById('adminRefType').value = '';
+    document.getElementById('adminRefLead').value = '';
     document.getElementById('adminRefCaseManager').value = '';
     document.getElementById('adminRefRemark').value = '';
 
@@ -157,7 +167,15 @@ function editAdminReferral(id) {
     document.getElementById('adminRefReferredBy').value = r.referred_by || '';
     document.getElementById('adminRefProvider').value = r.referred_to_provider || '';
     document.getElementById('adminRefBodyShop').value = r.referred_to_body_shop || '';
-    document.getElementById('adminRefType').value = r.referral_type || '';
+    if (r.lead_id) {
+        document.getElementById('adminRefLead').value = r.lead_id;
+    } else if (r.referral_type === 'Office') {
+        document.getElementById('adminRefLead').value = 'office';
+    } else if (r.referral_type === 'Prior client') {
+        document.getElementById('adminRefLead').value = 'prior_client';
+    } else {
+        document.getElementById('adminRefLead').value = '';
+    }
     document.getElementById('adminRefCaseManager').value = r.case_manager_id || '';
     document.getElementById('adminRefRemark').value = r.remark || '';
 
@@ -169,6 +187,16 @@ async function saveAdminReferral(e) {
     e.preventDefault();
 
     const editId = document.getElementById('adminRefEditId').value;
+    const leadVal = document.getElementById('adminRefLead').value;
+    let leadId = null;
+    let referralType = '';
+    if (leadVal === 'office') {
+        referralType = 'Office';
+    } else if (leadVal === 'prior_client') {
+        referralType = 'Prior client';
+    } else if (leadVal) {
+        leadId = leadVal;
+    }
     const data = {
         signed_date: document.getElementById('adminRefSignedDate').value,
         file_number: document.getElementById('adminRefFileNumber').value,
@@ -177,7 +205,8 @@ async function saveAdminReferral(e) {
         referred_by: document.getElementById('adminRefReferredBy').value,
         referred_to_provider: document.getElementById('adminRefProvider').value,
         referred_to_body_shop: document.getElementById('adminRefBodyShop').value,
-        referral_type: document.getElementById('adminRefType').value,
+        lead_id: leadId,
+        referral_type: referralType,
         case_manager_id: document.getElementById('adminRefCaseManager').value || null,
         remark: document.getElementById('adminRefRemark').value
     };

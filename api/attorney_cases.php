@@ -80,9 +80,11 @@ if ($method === 'GET') {
     $year = sanitizeString($_GET['year'] ?? 'all', 10);
 
     $sql = "SELECT c.*, u.display_name as counsel_name,
-                   DATEDIFF(c.demand_deadline, CURDATE()) as days_until_deadline
+                   DATEDIFF(c.demand_deadline, CURDATE()) as days_until_deadline,
+                   ta.display_name as top_offer_assignee_name
             FROM cases c
             JOIN users u ON c.user_id = u.id
+            LEFT JOIN users ta ON c.top_offer_assignee_id = ta.id
             WHERE c.user_id = ? AND c.deleted_at IS NULL";
     $params = [$attorneyId];
 
@@ -114,9 +116,13 @@ if ($method === 'GET') {
 
     $sql .= " ORDER BY
               CASE
-                WHEN c.phase = 'demand' AND c.demand_deadline IS NOT NULL THEN c.demand_deadline
-                ELSE c.submitted_at
-              END ASC";
+                WHEN c.phase = 'demand' AND c.demand_deadline < CURDATE() AND c.top_offer_date IS NULL THEN 0
+                WHEN c.phase = 'demand' AND c.demand_deadline <= DATE_ADD(CURDATE(), INTERVAL 14 DAY) AND c.top_offer_date IS NULL THEN 1
+                WHEN c.phase = 'demand' AND c.assigned_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 2
+                ELSE 3
+              END ASC,
+              CASE WHEN c.phase = 'demand' AND c.demand_deadline IS NOT NULL THEN c.demand_deadline END ASC,
+              c.submitted_at DESC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -125,7 +131,16 @@ if ($method === 'GET') {
     // Add deadline status to each case
     foreach ($cases as &$case) {
         if ($case['phase'] === 'demand' && $case['demand_deadline']) {
-            $case['deadline_status'] = getDeadlineStatus($case['demand_deadline']);
+            if (!empty($case['top_offer_date'])) {
+                $case['deadline_status'] = [
+                    'class' => 'deadline-complete',
+                    'message' => 'Completed',
+                    'days' => null,
+                    'urgent' => false
+                ];
+            } else {
+                $case['deadline_status'] = getDeadlineStatus($case['demand_deadline']);
+            }
         } else {
             $case['deadline_status'] = null;
         }
@@ -206,7 +221,7 @@ if ($method === 'POST') {
 
     $stmt->execute([
         $attorneyId,
-        sanitizeString($data['case_type'] ?? 'Auto Accident', 50),
+        sanitizeString($data['case_type'] ?? 'Auto', 50),
         $caseNumber,
         $clientName,
         $settled > 0 ? 'Demand Settle' : '',
@@ -398,6 +413,7 @@ function getUrgentCases($pdo, $attorneyId) {
           AND c.demand_deadline IS NOT NULL
           AND c.deleted_at IS NULL
           AND c.demand_deadline <= DATE_ADD(CURDATE(), INTERVAL 14 DAY)
+          AND c.top_offer_date IS NULL
         ORDER BY c.demand_deadline ASC
         LIMIT 10
     ");
@@ -635,20 +651,138 @@ function updateAttorneyCase($pdo, $case, $data, $oldData) {
         jsonResponse(['success' => true]);
     }
 
+    // Quick stage+date toggle (inline checkbox from demand table)
+    if (isset($data['action']) && $data['action'] === 'stage_date_toggle') {
+        $field = sanitizeString($data['field'] ?? '', 30);
+        $validFields = ['demand_out_date', 'negotiate_date'];
+
+        if (!in_array($field, $validFields)) {
+            jsonResponse(['error' => 'Invalid field'], 400);
+        }
+
+        $stageMap = [
+            'demand_out_date' => 'demand_sent',
+            'negotiate_date' => 'negotiate'
+        ];
+
+        if (!empty($data['date'])) {
+            $date = sanitizeString($data['date'], 20);
+            $stage = $stageMap[$field];
+            $stmt = $pdo->prepare("UPDATE cases SET `$field` = ?, stage = ? WHERE id = ?");
+            $stmt->execute([$date, $stage, $case['id']]);
+
+            logAudit('update', 'cases', $case['id'], $oldData, [
+                $field => $date,
+                'stage' => $stage
+            ]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE cases SET `$field` = NULL WHERE id = ?");
+            $stmt->execute([$case['id']]);
+
+            logAudit('update', 'cases', $case['id'], $oldData, [
+                $field => null
+            ]);
+        }
+
+        jsonResponse(['success' => true]);
+    }
+
+    // Top Offer submit (from demand table Top button)
+    if (isset($data['action']) && $data['action'] === 'submit_top_offer') {
+        $amount = sanitizeNumber($data['top_offer_amount'] ?? 0, 0, 999999999.99);
+        $assigneeId = intval($data['assignee_id'] ?? 0);
+        $offerNote = sanitizeString($data['note'] ?? '', 1000);
+        $today = date('Y-m-d');
+
+        if ($amount <= 0) {
+            jsonResponse(['error' => 'Top offer amount is required'], 400);
+        }
+
+        // Validate assignee exists
+        $stmt = $pdo->prepare("SELECT id, display_name FROM users WHERE id = ? AND is_active = 1");
+        $stmt->execute([$assigneeId]);
+        $assignee = $stmt->fetch();
+        if (!$assignee) {
+            jsonResponse(['error' => 'Invalid assignee'], 400);
+        }
+
+        // Update case with top offer data
+        $stmt = $pdo->prepare("UPDATE cases SET top_offer_amount = ?, top_offer_date = ?, top_offer_assignee_id = ?, top_offer_note = ? WHERE id = ?");
+        $stmt->execute([$amount, $today, $assigneeId, $offerNote ?: null, $case['id']]);
+
+        // Send message to assignee
+        $subject = "Top Offer Received - {$case['case_number']}";
+        $msgBody = "Top offer of $" . number_format($amount, 2) . " received for case {$case['case_number']} ({$case['client_name']}).";
+        if ($offerNote) {
+            $msgBody .= "\n\nNote: " . $offerNote;
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO messages (from_user_id, to_user_id, subject, message, created_at) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->execute([$case['user_id'], $assigneeId, $subject, $msgBody]);
+
+        logAudit('update', 'cases', $case['id'], $oldData, [
+            'top_offer_amount' => $amount,
+            'top_offer_date' => $today,
+            'top_offer_assignee_id' => $assigneeId
+        ]);
+
+        jsonResponse(['success' => true, 'top_offer_date' => $today]);
+    }
+
     // Standard case update
     $caseNumber = sanitizeString($data['case_number'] ?? $case['case_number'], 50);
     $clientName = sanitizeString($data['client_name'] ?? $case['client_name'], 200);
     $caseType = sanitizeString($data['case_type'] ?? $case['case_type'], 50);
+    $resolutionType = sanitizeString($data['resolution_type'] ?? $case['resolution_type'], 100);
+    $settled = sanitizeNumber($data['settled'] ?? $case['settled'], 0, 999999999.99);
+    $presuitOffer = sanitizeNumber($data['presuit_offer'] ?? $case['presuit_offer'], 0, 999999999.99);
+    $legalFee = sanitizeNumber($data['legal_fee'] ?? $case['legal_fee'], 0, 999999999.99);
+    $discountedLegalFee = sanitizeNumber($data['discounted_legal_fee'] ?? $case['discounted_legal_fee'], 0, 999999999.99);
+    $commission = sanitizeNumber($data['commission'] ?? $case['commission'], 0, 999999999.99);
+    $month = sanitizeString($data['month'] ?? $case['month'], 20);
+    $status = sanitizeString($data['status'] ?? $case['status'], 20);
     $note = sanitizeString($data['note'] ?? $case['note'], 1000);
     $checkReceived = isset($data['check_received']) ? (!empty($data['check_received']) ? 1 : 0) : $case['check_received'];
+    $demandOutDate = array_key_exists('demand_out_date', $data)
+        ? (!empty($data['demand_out_date']) ? sanitizeString($data['demand_out_date'], 20) : null)
+        : $case['demand_out_date'];
+    $negotiateDate = array_key_exists('negotiate_date', $data)
+        ? (!empty($data['negotiate_date']) ? sanitizeString($data['negotiate_date'], 20) : null)
+        : $case['negotiate_date'];
+    $topOfferAmount = array_key_exists('top_offer_amount', $data)
+        ? sanitizeNumber($data['top_offer_amount'] ?? 0, 0, 999999999.99)
+        : $case['top_offer_amount'];
+    $topOfferDate = array_key_exists('top_offer_date', $data)
+        ? (!empty($data['top_offer_date']) ? sanitizeString($data['top_offer_date'], 20) : null)
+        : $case['top_offer_date'];
+    $topOfferAssigneeId = array_key_exists('top_offer_assignee_id', $data)
+        ? ($data['top_offer_assignee_id'] ? intval($data['top_offer_assignee_id']) : null)
+        : $case['top_offer_assignee_id'];
+    $topOfferNote = array_key_exists('top_offer_note', $data)
+        ? sanitizeString($data['top_offer_note'] ?? '', 1000)
+        : $case['top_offer_note'];
 
     $stmt = $pdo->prepare("
         UPDATE cases SET
             case_number = ?,
             client_name = ?,
             case_type = ?,
+            resolution_type = ?,
+            settled = ?,
+            presuit_offer = ?,
+            legal_fee = ?,
+            discounted_legal_fee = ?,
+            commission = ?,
+            month = ?,
+            status = ?,
             note = ?,
-            check_received = ?
+            check_received = ?,
+            demand_out_date = ?,
+            negotiate_date = ?,
+            top_offer_amount = ?,
+            top_offer_date = ?,
+            top_offer_assignee_id = ?,
+            top_offer_note = ?
         WHERE id = ?
     ");
 
@@ -656,8 +790,22 @@ function updateAttorneyCase($pdo, $case, $data, $oldData) {
         $caseNumber,
         $clientName,
         $caseType,
+        $resolutionType,
+        $settled,
+        $presuitOffer,
+        $legalFee,
+        $discountedLegalFee,
+        $commission,
+        $month,
+        $status,
         $note,
         $checkReceived,
+        $demandOutDate,
+        $negotiateDate,
+        $topOfferAmount,
+        $topOfferDate,
+        $topOfferAssigneeId,
+        $topOfferNote ?: null,
         $case['id']
     ]);
 

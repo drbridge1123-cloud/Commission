@@ -83,8 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } else {
                 $sql = file_get_contents($file['tmp_name']);
 
-                if (strpos($sql, '-- Commission DB Backup') === false) {
-                    $message = 'Invalid backup file. Please use a file created by this system.';
+                // Accept any .sql file that contains valid SQL (DROP/CREATE/INSERT or Commission header)
+                $isValid = (strpos($sql, '-- Commission DB Backup') !== false)
+                        || (strpos($sql, 'CREATE TABLE') !== false)
+                        || (strpos($sql, 'INSERT INTO') !== false);
+
+                if (!$isValid) {
+                    $message = 'Invalid backup file. Please upload a valid .sql file.';
                     $messageType = 'error';
                 } else {
                     try {

@@ -23,7 +23,7 @@
                         <div>
                             <label class="m-label">Case Type</label>
                             <select name="case_type" class="m-input">
-                                <option value="Auto Accident">Auto Accident</option>
+                                <option value="Auto">Auto</option>
                                 <option value="Pedestrian">Pedestrian</option>
                                 <option value="Slip and Fall">Slip and Fall</option>
                                 <option value="Other">Other</option>

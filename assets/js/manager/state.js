@@ -9,11 +9,13 @@ let referralUsersCache = null;
 // Extend pageTitles for manager-specific tabs
 Object.assign(pageTitles, {
     'referrals': 'Referrals',
-    'goals': 'Team Goals'
+    'goals': 'Team Goals',
+    'attorney-progress': 'Attorney Progress'
 });
 
 // Extend TAB_DEFAULT_WIDTHS
 Object.assign(TAB_DEFAULT_WIDTHS, {
     'referrals': '100',
-    'goals': '100'
+    'goals': '100',
+    'attorney-progress': '100'
 });
