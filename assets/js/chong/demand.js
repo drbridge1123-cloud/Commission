@@ -503,7 +503,8 @@ async function submitSettleDemand(event) {
         settled: parseFloat(form.settled.value),
         discounted_legal_fee: parseFloat(form.discounted_legal_fee.value),
         month: form.month.value,
-        check_received: form.check_received.checked
+        check_received: form.check_received.checked,
+        is_policy_limit: form.is_policy_limit.checked
     };
 
     const result = await apiCall(`api/chong_cases.php?id=${caseId}&action=settle_demand`, 'PUT', data);
@@ -511,8 +512,11 @@ async function submitSettleDemand(event) {
         closeModal('settleDemandModal');
         loadDashboard();
         loadDemandCases();
+        if (result.is_policy_limit) loadUimCases();
         loadCommissions();
-        alert(`Case settled! Commission: ${formatCurrency(result.commission)}`);
+        alert(result.is_policy_limit
+            ? `Settled! Commission: ${formatCurrency(result.commission)}. Case moved to UIM.`
+            : `Case settled! Commission: ${formatCurrency(result.commission)}`);
     } else {
         alert('Error: ' + (result.error || 'Failed to settle case'));
     }

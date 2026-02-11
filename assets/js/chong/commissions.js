@@ -48,9 +48,10 @@ async function loadCommissions() {
 function renderCommissionsTable(cases) {
     const tbody = document.getElementById('commissionsTableBody');
 
-    const totalCommission = cases.reduce((sum, c) => sum + parseFloat(c.commission || 0), 0);
-    const paidCommission = cases.filter(c => c.status === 'paid').reduce((sum, c) => sum + parseFloat(c.commission || 0), 0);
-    const unpaidCommission = cases.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + parseFloat(c.commission || 0), 0);
+    const getCaseTotal = (c) => parseFloat(c.commission || 0) + parseFloat(c.uim_commission || 0);
+    const totalCommission = cases.reduce((sum, c) => sum + getCaseTotal(c), 0);
+    const paidCommission = cases.filter(c => c.status === 'paid').reduce((sum, c) => sum + getCaseTotal(c), 0);
+    const unpaidCommission = cases.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + getCaseTotal(c), 0);
 
     document.getElementById('commStatCases').textContent = cases.length;
     document.getElementById('commStatTotal').textContent = formatCurrency(totalCommission);
@@ -74,7 +75,7 @@ function renderCommissionsTable(cases) {
             groups.push(currentGroup);
         }
         currentGroup.cases.push(c);
-        currentGroup.totalComm += parseFloat(c.commission || 0);
+        currentGroup.totalComm += parseFloat(c.commission || 0) + parseFloat(c.uim_commission || 0);
         currentGroup.count++;
     });
 
@@ -104,6 +105,12 @@ function renderCommissionsTable(cases) {
             const legalFee = parseFloat(c.legal_fee || 0);
             const discFee = parseFloat(c.discounted_legal_fee || 0);
             const commission = parseFloat(c.commission || 0);
+            const uimCommission = parseFloat(c.uim_commission || 0);
+            const totalComm = commission + uimCommission;
+            const uimSettled = parseFloat(c.uim_settled || 0);
+            const uimLegalFee = parseFloat(c.uim_legal_fee || 0);
+            const uimDiscFee = parseFloat(c.uim_discounted_legal_fee || 0);
+            const uimSub = (v) => `<div style="font-size:10px;font-weight:500;color:#7c3aed;">+${formatCurrency(v)} UIM</div>`;
 
             const resType = c.resolution_type || '-';
             let resBadge = '';
@@ -131,12 +138,12 @@ function renderCommissionsTable(cases) {
                 <td style="width:0;padding:0;border:none;"></td>
                 <td>${resBadge}${escapeHtml(resType)}</td>
                 <td>${escapeHtml(c.client_name)}</td>
-                <td style="text-align:right; font-weight:600;">${formatCurrency(settled)}</td>
+                <td style="text-align:right; font-weight:600;">${formatCurrency(settled)}${uimSettled > 0 ? uimSub(uimSettled) : ''}</td>
                 <td style="text-align:right; color:#8b8fa3;">${preSuitOffer > 0 ? formatCurrency(preSuitOffer) : '—'}</td>
                 <td style="text-align:right;">${difference > 0 ? formatCurrency(difference) : '—'}</td>
-                <td style="text-align:right;">${formatCurrency(legalFee)}</td>
-                <td style="text-align:right;">${formatCurrency(discFee)}</td>
-                <td style="text-align:right; font-weight:700; color:#0d9488;">${formatCurrency(commission)}</td>
+                <td style="text-align:right;">${formatCurrency(legalFee)}${uimLegalFee > 0 ? uimSub(uimLegalFee) : ''}</td>
+                <td style="text-align:right;">${formatCurrency(discFee)}${uimDiscFee > 0 ? uimSub(uimDiscFee) : ''}</td>
+                <td style="text-align:right; font-weight:700; color:#0d9488;">${formatCurrency(totalComm)}${uimCommission > 0 ? uimSub(uimCommission) : ''}</td>
                 <td>${escapeHtml(c.month || '-')}</td>
                 <td style="text-align:center;">${statusBadge}</td>
                 <td style="text-align:center;">${checkIcon}</td>
@@ -188,8 +195,14 @@ function sortCommissions(column) {
 
     const numericCols = ['settled', 'commission'];
     commissionsData.sort((a, b) => {
-        let valA = a[column] ?? '';
-        let valB = b[column] ?? '';
+        let valA, valB;
+        if (column === 'commission') {
+            valA = (parseFloat(a.commission || 0) + parseFloat(a.uim_commission || 0));
+            valB = (parseFloat(b.commission || 0) + parseFloat(b.uim_commission || 0));
+        } else {
+            valA = a[column] ?? '';
+            valB = b[column] ?? '';
+        }
 
         if (numericCols.includes(column)) {
             valA = parseFloat(valA) || 0;
@@ -275,6 +288,8 @@ function exportCommissionsToExcel() {
         'Resolution': c.resolution_type || '',
         'Settled': c.settled || 0,
         'Commission': c.commission || 0,
+        'UIM Commission': c.uim_commission || 0,
+        'Total Commission': (parseFloat(c.commission || 0) + parseFloat(c.uim_commission || 0)),
         'Month': c.month || '',
         'Status': c.status
     }));

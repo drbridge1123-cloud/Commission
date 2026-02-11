@@ -31,6 +31,9 @@ function switchTab(tabName) {
     if (tabName === 'reports') {
         loadReports();
     }
+    if (tabName === 'uim') {
+        loadUimCases();
+    }
     if (tabName === 'traffic') {
         loadTrafficCases();
         loadAllTrafficRequests();
@@ -46,6 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadDemandCases();
     loadDemandRequests();
     loadLitigationCases();
+    loadUimCases();
     loadUnreadCount();
     loadAllTrafficRequests();
 
@@ -86,6 +90,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
             case 'settle-litigation':
                 openSettleLitigationModal(parseInt(id), caseNum, client, presuit);
+                break;
+            case 'settle-uim':
+                const settled = parseFloat(btn.dataset.settled) || 0;
+                const commission = parseFloat(btn.dataset.commission) || 0;
+                openSettleUimModal(parseInt(id), caseNum, client, settled, commission);
                 break;
             case 'edit-traffic':
                 editTrafficCase(parseInt(id));

@@ -308,6 +308,14 @@ if ($method === 'PUT') {
             // Settle case in Litigation phase
             return settleLitigationCase($pdo, $case, $data, $oldData);
 
+        case 'settle_uim':
+            // Settle case in UIM phase
+            return settleUimCase($pdo, $case, $data, $oldData);
+
+        case 'toggle_uim_date':
+            // Toggle UIM inline date fields
+            return toggleUimDate($pdo, $case, $data, $oldData);
+
         default:
             // Standard update
             return updateAttorneyCase($pdo, $case, $data, $oldData);
@@ -357,7 +365,7 @@ function getAttorneyStats($pdo, $attorneyId) {
             COUNT(*) as total_active,
             SUM(CASE WHEN phase = 'demand' THEN 1 ELSE 0 END) as demand_count,
             SUM(CASE WHEN phase = 'litigation' THEN 1 ELSE 0 END) as litigation_count,
-            SUM(CASE WHEN phase = 'demand' AND demand_deadline < DATE_ADD(CURDATE(), INTERVAL 14 DAY) THEN 1 ELSE 0 END) as urgent_count
+            SUM(CASE WHEN phase = 'demand' AND demand_deadline >= CURDATE() AND demand_deadline < DATE_ADD(CURDATE(), INTERVAL 14 DAY) THEN 1 ELSE 0 END) as urgent_count
         FROM cases
         WHERE user_id = ? AND deleted_at IS NULL AND phase IN ('demand', 'litigation')
     ");
@@ -415,7 +423,6 @@ function getUrgentCases($pdo, $attorneyId) {
           AND c.demand_deadline <= DATE_ADD(CURDATE(), INTERVAL 14 DAY)
           AND c.top_offer_date IS NULL
         ORDER BY c.demand_deadline ASC
-        LIMIT 10
     ");
     $stmt->execute([$attorneyId]);
     $cases = $stmt->fetchAll();
@@ -450,10 +457,22 @@ function settleDemandCase($pdo, $case, $data, $oldData) {
     $demandSettledDate = date('Y-m-d');
     $demandDurationDays = calculateDaysBetween($case['assigned_date'], $demandSettledDate);
 
+    // Policy limit → UIM phase instead of settled
+    $isPolicyLimit = !empty($data['is_policy_limit']) ? 1 : 0;
+    if ($isPolicyLimit) {
+        $phase = 'uim';
+        $status = 'in_progress';
+        $uimStartDate = date('Y-m-d');
+    } else {
+        $phase = 'settled';
+        $status = 'unpaid';
+        $uimStartDate = null;
+    }
+
     $stmt = $pdo->prepare("
         UPDATE cases SET
-            phase = 'settled',
-            status = 'unpaid',
+            phase = ?,
+            status = ?,
             resolution_type = 'Demand Settle',
             settled = ?,
             legal_fee = ?,
@@ -465,11 +484,15 @@ function settleDemandCase($pdo, $case, $data, $oldData) {
             total_duration_days = ?,
             month = ?,
             check_received = ?,
+            is_policy_limit = ?,
+            uim_start_date = ?,
             note = ?
         WHERE id = ?
     ");
 
     $stmt->execute([
+        $phase,
+        $status,
         $settled,
         $chongResult['legal_fee'],
         $discountedLegalFee,
@@ -480,17 +503,20 @@ function settleDemandCase($pdo, $case, $data, $oldData) {
         $demandDurationDays,
         sanitizeString($data['month'] ?? date('M. Y'), 20),
         !empty($data['check_received']) ? 1 : 0,
+        $isPolicyLimit,
+        $uimStartDate,
         sanitizeString($data['note'] ?? $case['note'], 1000),
         $case['id']
     ]);
 
     logAudit('update', 'cases', $case['id'], $oldData, [
         'action' => 'settle_demand',
-        'phase' => 'settled',
-        'commission' => $chongResult['commission']
+        'phase' => $phase,
+        'commission' => $chongResult['commission'],
+        'is_policy_limit' => $isPolicyLimit
     ]);
 
-    jsonResponse(['success' => true, 'commission' => $chongResult['commission']]);
+    jsonResponse(['success' => true, 'commission' => $chongResult['commission'], 'is_policy_limit' => $isPolicyLimit]);
 }
 
 function moveToLitigation($pdo, $case, $data, $oldData) {
@@ -576,10 +602,22 @@ function settleLitigationCase($pdo, $case, $data, $oldData) {
     $litigationDurationDays = calculateDaysBetween($case['litigation_start_date'], $litigationSettledDate);
     $totalDurationDays = calculateDaysBetween($case['assigned_date'], $litigationSettledDate);
 
+    // Policy limit → UIM phase instead of settled
+    $isPolicyLimit = !empty($data['is_policy_limit']) ? 1 : 0;
+    if ($isPolicyLimit) {
+        $phase = 'uim';
+        $status = 'in_progress';
+        $uimStartDate = date('Y-m-d');
+    } else {
+        $phase = 'settled';
+        $status = 'unpaid';
+        $uimStartDate = null;
+    }
+
     $stmt = $pdo->prepare("
         UPDATE cases SET
-            phase = 'settled',
-            status = 'unpaid',
+            phase = ?,
+            status = ?,
             resolution_type = ?,
             settled = ?,
             presuit_offer = ?,
@@ -594,11 +632,15 @@ function settleLitigationCase($pdo, $case, $data, $oldData) {
             total_duration_days = ?,
             month = ?,
             check_received = ?,
+            is_policy_limit = ?,
+            uim_start_date = ?,
             note = ?
         WHERE id = ?
     ");
 
     $stmt->execute([
+        $phase,
+        $status,
         $resolutionType,
         $settled,
         $presuitOffer,
@@ -613,22 +655,25 @@ function settleLitigationCase($pdo, $case, $data, $oldData) {
         $totalDurationDays,
         sanitizeString($data['month'] ?? date('M. Y'), 20),
         !empty($data['check_received']) ? 1 : 0,
+        $isPolicyLimit,
+        $uimStartDate,
         sanitizeString($data['note'] ?? $case['note'], 1000),
         $case['id']
     ]);
 
     $auditData = [
         'action' => 'settle_litigation',
-        'phase' => 'settled',
+        'phase' => $phase,
         'resolution_type' => $resolutionType,
-        'commission' => $chongResult['commission']
+        'commission' => $chongResult['commission'],
+        'is_policy_limit' => $isPolicyLimit
     ];
     if ($overrideFeeRate !== null) {
         $auditData['fee_rate_override'] = $overrideFeeRate;
     }
     logAudit('update', 'cases', $case['id'], $oldData, $auditData);
 
-    jsonResponse(['success' => true, 'commission' => $chongResult['commission'], 'result' => $chongResult]);
+    jsonResponse(['success' => true, 'commission' => $chongResult['commission'], 'result' => $chongResult, 'is_policy_limit' => $isPolicyLimit]);
 }
 
 function updateAttorneyCase($pdo, $case, $data, $oldData) {
@@ -813,6 +858,96 @@ function updateAttorneyCase($pdo, $case, $data, $oldData) {
         'case_number' => $caseNumber,
         'client_name' => $clientName
     ]);
+
+    jsonResponse(['success' => true]);
+}
+
+// Settle UIM Case (5% commission, same as demand)
+function settleUimCase($pdo, $case, $data, $oldData) {
+    if ($case['phase'] !== 'uim') {
+        jsonResponse(['error' => 'Case is not in UIM phase'], 400);
+    }
+
+    $uimSettled = sanitizeNumber($data['settled'] ?? 0, 0, 999999999.99);
+    $uimDiscLegalFee = sanitizeNumber($data['discounted_legal_fee'] ?? 0, 0, 999999999.99);
+
+    if ($uimSettled <= 0 || $uimDiscLegalFee <= 0) {
+        jsonResponse(['error' => 'UIM settled amount and Discounted Legal Fee are required'], 400);
+    }
+
+    // UIM uses demand rate (5%)
+    $uimResult = calculateChongCommission('demand', 'UIM Settle', $uimSettled, 0, $uimDiscLegalFee);
+
+    $uimSettledDate = date('Y-m-d');
+    $uimDurationDays = calculateDaysBetween($case['uim_start_date'], $uimSettledDate);
+    $totalDurationDays = calculateDaysBetween($case['assigned_date'], $uimSettledDate);
+
+    $stmt = $pdo->prepare("
+        UPDATE cases SET
+            phase = 'settled',
+            status = 'unpaid',
+            uim_settled = ?,
+            uim_legal_fee = ?,
+            uim_discounted_legal_fee = ?,
+            uim_commission = ?,
+            uim_settled_date = ?,
+            uim_duration_days = ?,
+            total_duration_days = ?,
+            month = ?,
+            check_received = ?
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $uimSettled,
+        $uimResult['legal_fee'],
+        $uimDiscLegalFee,
+        $uimResult['commission'],
+        $uimSettledDate,
+        $uimDurationDays,
+        $totalDurationDays,
+        sanitizeString($data['month'] ?? date('M. Y'), 20),
+        !empty($data['check_received']) ? 1 : 0,
+        $case['id']
+    ]);
+
+    logAudit('update', 'cases', $case['id'], $oldData, [
+        'action' => 'settle_uim',
+        'phase' => 'settled',
+        'uim_commission' => $uimResult['commission']
+    ]);
+
+    $totalCommission = floatval($case['commission']) + $uimResult['commission'];
+    jsonResponse([
+        'success' => true,
+        'uim_commission' => $uimResult['commission'],
+        'total_commission' => $totalCommission
+    ]);
+}
+
+// Toggle UIM inline date fields (uim_demand_out_date, uim_negotiate_date)
+function toggleUimDate($pdo, $case, $data, $oldData) {
+    if ($case['phase'] !== 'uim') {
+        jsonResponse(['error' => 'Case is not in UIM phase'], 400);
+    }
+
+    $field = sanitizeString($data['field'] ?? '', 30);
+    $validFields = ['uim_demand_out_date', 'uim_negotiate_date'];
+
+    if (!in_array($field, $validFields)) {
+        jsonResponse(['error' => 'Invalid field'], 400);
+    }
+
+    if (!empty($data['date'])) {
+        $date = sanitizeString($data['date'], 20);
+        $stmt = $pdo->prepare("UPDATE cases SET `$field` = ? WHERE id = ?");
+        $stmt->execute([$date, $case['id']]);
+        logAudit('update', 'cases', $case['id'], $oldData, [$field => $date]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE cases SET `$field` = NULL WHERE id = ?");
+        $stmt->execute([$case['id']]);
+        logAudit('update', 'cases', $case['id'], $oldData, [$field => null]);
+    }
 
     jsonResponse(['success' => true]);
 }

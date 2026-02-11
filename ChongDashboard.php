@@ -22,6 +22,10 @@ $csrfToken = generateCSRFToken();
 
 // Get resolution types for dropdowns
 $resolutionTypes = getChongResolutionTypes();
+
+// Month options for settle modals
+$months = getMonthOptions();
+$currentMonth = date('M. Y');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -71,6 +75,11 @@ $resolutionTypes = getChongResolutionTypes();
                 <a class="nav-link" data-tab="litigation">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
                     Litigation
+                </a>
+                <a class="nav-link" data-tab="uim">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    UIM
+                    <span class="nav-count" id="uimBadge" style="display:none;">0</span>
                 </a>
                 <a class="nav-link" data-tab="traffic">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -127,6 +136,9 @@ $resolutionTypes = getChongResolutionTypes();
         <!-- Litigation Cases Tab -->
         <?php include 'app/views/chong/tabs/litigation.php'; ?>
 
+        <!-- UIM Cases Tab -->
+        <?php include 'app/views/chong/tabs/uim.php'; ?>
+
         <!-- Commissions Tab -->
         <?php include 'app/views/chong/tabs/commissions.php'; ?>
 
@@ -150,6 +162,8 @@ $resolutionTypes = getChongResolutionTypes();
 
     <?php include 'app/views/chong/modals/settle-litigation.php'; ?>
 
+    <?php include 'app/views/chong/modals/settle-uim.php'; ?>
+
     <?php include 'app/views/chong/modals/traffic-form.php'; ?>
 
     <?php include 'app/views/chong/modals/edit-case.php'; ?>
@@ -171,6 +185,7 @@ $resolutionTypes = getChongResolutionTypes();
     <script src="assets/js/chong/dashboard.js?v=<?= filemtime('assets/js/chong/dashboard.js') ?>"></script>
     <script src="assets/js/chong/demand.js?v=<?= filemtime('assets/js/chong/demand.js') ?>"></script>
     <script src="assets/js/chong/litigation.js?v=<?= filemtime('assets/js/chong/litigation.js') ?>"></script>
+    <script src="assets/js/chong/uim.js?v=<?= filemtime('assets/js/chong/uim.js') ?>"></script>
     <script src="assets/js/chong/commissions.js?v=<?= filemtime('assets/js/chong/commissions.js') ?>"></script>
     <script src="assets/js/chong/edit-case.js?v=<?= filemtime('assets/js/chong/edit-case.js') ?>"></script>
     <script src="assets/js/chong/notifications.js?v=<?= filemtime('assets/js/chong/notifications.js') ?>"></script>

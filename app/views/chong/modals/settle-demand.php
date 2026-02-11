@@ -45,6 +45,10 @@
                         <input type="checkbox" name="check_received" id="demandCheckReceived">
                         <label for="demandCheckReceived">Check Received</label>
                     </div>
+                    <div class="m-checkbox-row">
+                        <input type="checkbox" name="is_policy_limit" id="demandPolicyLimit">
+                        <label for="demandPolicyLimit" style="color: #7c3aed; font-weight: 500;">Policy Limit → UIM</label>
+                    </div>
                 </div>
                 <div class="m-footer">
                     <button type="button" class="m-btn m-btn-secondary" onclick="closeModal('settleDemandModal')">Cancel</button>

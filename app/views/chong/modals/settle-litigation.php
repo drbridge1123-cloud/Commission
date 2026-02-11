@@ -119,6 +119,10 @@
                         <input type="checkbox" name="check_received" id="litCheckReceived">
                         <label for="litCheckReceived">Check Received</label>
                     </div>
+                    <div class="m-checkbox-row">
+                        <input type="checkbox" name="is_policy_limit" id="litPolicyLimit">
+                        <label for="litPolicyLimit" style="color: #7c3aed; font-weight: 500;">Policy Limit → UIM</label>
+                    </div>
                 </div>
 
                 <div class="m-footer">

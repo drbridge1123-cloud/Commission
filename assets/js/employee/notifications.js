@@ -11,19 +11,6 @@ let pendingDeleteId = null;
 
 async function checkNotifications() {
     try {
-        // Check for case updates
-        const casesData = await apiCall('api/cases.php');
-        const cases = casesData.cases || [];
-
-        // Find recently reviewed cases (within last 7 days)
-        const recentCases = cases.filter(c => {
-            if (!c.reviewed_at) return false;
-            const reviewedDate = new Date(c.reviewed_at);
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            return reviewedDate > sevenDaysAgo && reviewedDate > new Date(lastCheckedTime);
-        });
-
         // Check for new messages
         const messagesData = await apiCall('api/messages.php');
         const unreadMessages = messagesData.messages.filter(m => !m.is_read);
@@ -34,29 +21,19 @@ async function checkNotifications() {
             return createdDate > new Date(lastCheckedTime);
         });
 
-        // Update notification badge with total count
-        const totalNotifications = recentCases.length + unreadMessages.length;
+        // Update notification badge with unread count
         const badge = document.getElementById('notificationBadge');
         if (badge) {
-            if (totalNotifications > 0) {
-                badge.textContent = totalNotifications;
+            if (unreadMessages.length > 0) {
+                badge.textContent = unreadMessages.length;
                 badge.classList.remove('hidden');
             } else {
                 badge.classList.add('hidden');
             }
         }
 
-        // Show browser notifications
+        // Show browser notifications for new messages
         if (Notification.permission === 'granted') {
-            // Case notifications
-            recentCases.forEach(c => {
-                new Notification(`Case ${c.status === 'paid' ? 'Paid' : 'Rejected'}`, {
-                    body: `Case #${c.case_number} (${c.client_name}) has been ${c.status}`,
-                    icon: '/favicon.ico'
-                });
-            });
-
-            // Message notifications
             newMessages.forEach(m => {
                 new Notification(`New Message from ${m.from_name}`, {
                     body: m.subject,
@@ -76,33 +53,13 @@ async function loadNotifications() {
         // Get dismissed notifications from localStorage
         const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
 
-        // Get case notifications (not dismissed)
-        const reviewed = allCases.filter(c => c.reviewed_at && !dismissed.includes(`case_${c.id}`))
-            .sort((a, b) => new Date(b.reviewed_at) - new Date(a.reviewed_at))
-            .slice(0, 50);
-
         // Get messages
         const msgData = await apiCall('api/messages.php');
         const messages = msgData.messages || [];
         allMessages = messages; // Store globally for modal access
 
-        // Build unified items list: system notifications + messages
+        // Build items list from messages only
         const allItems = [];
-
-        reviewed.forEach(c => {
-            allItems.push({
-                type: 'system',
-                subtype: c.status === 'paid' ? 'approved' : 'rejected',
-                direction: 'received',
-                is_read: true,
-                fromTo: `Case #${c.case_number}`,
-                subject: c.status === 'paid' ? `${escapeHtml(c.client_name)} - ${formatCurrency(c.commission)}` : `${escapeHtml(c.client_name)} - Rejected`,
-                time: c.reviewed_at,
-                onclick: `viewCaseDetail(${c.id})`,
-                deleteAction: `showDeleteConfirmModal('case', 'case_${c.id}')`,
-                id: `case_${c.id}`
-            });
-        });
 
         messages.forEach(m => {
             const isSent = m.direction === 'sent';

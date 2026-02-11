@@ -16,8 +16,12 @@
                 <span class="f-chip" id="attyPill-requests" onclick="switchAttySubTab('requests')">
                     My Requests <span class="ac-pill-count" id="attyReqBadge" style="display:none;">0</span>
                 </span>
+                <span class="f-chip" id="attyPill-traffic-requests" onclick="switchAttySubTab('traffic-requests')">
+                    Traffic Requests <span class="ac-pill-count" id="attyTrafficReqBadge" style="display:none;">0</span>
+                </span>
                 <span class="f-spacer"></span>
                 <button class="f-btn" onclick="openDemandRequestForm()" id="attyNewDemandBtn" style="font-size:11px; padding:4px 12px;">+ Request New Demand</button>
+                <button class="f-btn" onclick="openTrafficRequestForm()" id="attyNewTrafficBtn" style="font-size:11px; padding:4px 12px; display:none;">+ Request New Traffic</button>
             </div>
 
             <!-- ===== DEMAND SUB-TAB ===== -->
@@ -145,6 +149,38 @@
                     </table>
                     <div class="tbl-foot">
                         <div class="left"><span id="attyMyRequestsCount3">0</span> requests</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== TRAFFIC REQUESTS SUB-TAB ===== -->
+            <div id="attySubContent-traffic-requests" style="display:none;">
+                <div class="tbl-container">
+                    <div class="tbl-header">
+                        <span class="tbl-title">My Traffic Requests</span>
+                        <input type="text" id="attyTrafficRequestsSearch" class="f-search" placeholder="Search..." style="width:225px !important; margin-left:12px; margin-right:auto;" onkeyup="filterAttyTable('traffic-requests')">
+                        <span class="tbl-count"><span id="attyMyTrafficRequestsCount">0</span> requests</span>
+                    </div>
+                    <table class="tbl" style="table-layout: auto;">
+                        <thead>
+                            <tr>
+                                <th data-sort="text">Client</th>
+                                <th data-sort="text">Ticket #</th>
+                                <th data-sort="text">Court</th>
+                                <th data-sort="text">Charge</th>
+                                <th data-sort="date">Court Date</th>
+                                <th>Note</th>
+                                <th class="c" data-sort="text">Status</th>
+                                <th data-sort="date">Submitted</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attyMyTrafficRequestsBody">
+                            <tr><td colspan="9" style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="tbl-foot">
+                        <div class="left"><span id="attyMyTrafficRequestsCount3">0</span> requests</div>
                     </div>
                 </div>
             </div>

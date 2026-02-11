@@ -369,7 +369,8 @@ async function submitSettleLitigation(event) {
         manual_commission_rate: parseFloat(form.manual_commission_rate?.value) || 0,
         month: form.month.value,
         check_received: form.check_received.checked,
-        note: form.note.value
+        note: form.note.value,
+        is_policy_limit: form.is_policy_limit.checked
     };
 
     // If fee rate overridden, send the override value
@@ -382,8 +383,11 @@ async function submitSettleLitigation(event) {
         closeModal('settleLitigationModal');
         loadDashboard();
         loadLitigationCases();
+        if (result.is_policy_limit) loadUimCases();
         loadCommissions();
-        alert(`Case settled! Commission: ${formatCurrency(result.commission)}`);
+        alert(result.is_policy_limit
+            ? `Settled! Commission: ${formatCurrency(result.commission)}. Case moved to UIM.`
+            : `Case settled! Commission: ${formatCurrency(result.commission)}`);
     } else {
         alert('Error: ' + (result.error || 'Failed to settle case'));
     }

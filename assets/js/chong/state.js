@@ -7,6 +7,7 @@
 let commissionsData = [];
 let demandCasesData = [];
 let litigationCasesData = [];
+let uimCasesData = [];
 
 // Sort state
 let commissionsSortColumn = 'month';
@@ -15,6 +16,8 @@ let demandSortColumn = 'demand_deadline';
 let demandSortDir = 'asc';
 let litigationSortColumn = 'litigation_start_date';
 let litigationSortDir = 'desc';
+let uimSortColumn = 'uim_start_date';
+let uimSortDir = 'desc';
 let trafficSortColumn = 'court_date';
 let trafficSortDir = 'desc';
 
@@ -79,6 +82,7 @@ const pageTitles = {
     'commissions': 'Commissions',
     'demand': 'Demand Cases',
     'litigation': 'Litigation Cases',
+    'uim': 'UIM Cases',
     'traffic': 'Traffic Cases',
     'notifications': 'Notifications',
     'reports': 'Reports'

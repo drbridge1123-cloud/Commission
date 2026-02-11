@@ -10,6 +10,7 @@ let attyDemandData = [];
 let attyLitigationData = [];
 let attyTrafficData = [];
 let attyMyRequests = [];
+let attyMyTrafficRequests = [];
 
 function attyFmtDate(d) {
     if (!d) return '-';
@@ -24,8 +25,8 @@ function attyFmtDate(d) {
 }
 
 function filterAttyTable(tab) {
-    const searchIds = { demand: 'attyDemandSearch', litigation: 'attyLitigationSearch', traffic: 'attyTrafficSearch', requests: 'attyRequestsSearch' };
-    const tbodyIds = { demand: 'attyDemandBody', litigation: 'attyLitigationBody', traffic: 'attyTrafficBody', requests: 'attyMyRequestsBody' };
+    const searchIds = { demand: 'attyDemandSearch', litigation: 'attyLitigationSearch', traffic: 'attyTrafficSearch', requests: 'attyRequestsSearch', 'traffic-requests': 'attyTrafficRequestsSearch' };
+    const tbodyIds = { demand: 'attyDemandBody', litigation: 'attyLitigationBody', traffic: 'attyTrafficBody', requests: 'attyMyRequestsBody', 'traffic-requests': 'attyMyTrafficRequestsBody' };
     const input = document.getElementById(searchIds[tab]);
     const tbody = document.getElementById(tbodyIds[tab]);
     if (!input || !tbody) return;
@@ -43,27 +44,31 @@ function filterAttyTable(tab) {
 
 function switchAttySubTab(tab) {
     currentAttySubTab = tab;
-    ['demand', 'litigation', 'traffic', 'requests'].forEach(t => {
+    ['demand', 'litigation', 'traffic', 'requests', 'traffic-requests'].forEach(t => {
         const panel = document.getElementById('attySubContent-' + t);
         if (panel) panel.style.display = t === tab ? '' : 'none';
         const btn = document.getElementById('attyPill-' + t);
         if (btn) btn.classList.toggle('active', t === tab);
     });
 
-    // Show/hide "Request New Demand" button
-    const newBtn = document.getElementById('attyNewDemandBtn');
-    if (newBtn) newBtn.style.display = (tab === 'demand' || tab === 'requests') ? '' : 'none';
+    // Show/hide request buttons
+    const demandBtn = document.getElementById('attyNewDemandBtn');
+    const trafficBtn = document.getElementById('attyNewTrafficBtn');
+    if (demandBtn) demandBtn.style.display = (tab === 'demand' || tab === 'requests') ? '' : 'none';
+    if (trafficBtn) trafficBtn.style.display = (tab === 'traffic' || tab === 'traffic-requests') ? '' : 'none';
 
     if (tab === 'demand') loadAttorneyDemand();
     else if (tab === 'litigation') loadAttorneyLitigation();
     else if (tab === 'traffic') loadAttorneyTraffic();
     else if (tab === 'requests') loadMyDemandRequests();
+    else if (tab === 'traffic-requests') loadMyTrafficRequests();
 }
 
 function initAttorneyProgress() {
     loadAttorneyStats();
     loadAttorneyDemand();
     loadMyDemandRequests(); // for badge count
+    loadMyTrafficRequests(); // for badge count
 }
 
 async function loadAttorneyStats() {
@@ -346,5 +351,115 @@ async function submitDemandRequest(event) {
     } catch (err) {
         console.error('Error submitting demand request:', err);
         alert(err.message || 'Error sending request');
+    }
+}
+
+// ============================================
+// Traffic Requests
+// ============================================
+
+async function loadMyTrafficRequests() {
+    try {
+        const result = await apiCall('api/traffic_requests.php');
+        attyMyTrafficRequests = result.requests || [];
+        renderMyTrafficRequests(attyMyTrafficRequests);
+
+        // Update badge
+        const pending = attyMyTrafficRequests.filter(r => r.status === 'pending').length;
+        const badge = document.getElementById('attyTrafficReqBadge');
+        if (pending > 0) {
+            badge.textContent = pending;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Error loading traffic requests:', err);
+    }
+}
+
+function renderMyTrafficRequests(requests) {
+    const tbody = document.getElementById('attyMyTrafficRequestsBody');
+    document.getElementById('attyMyTrafficRequestsCount').textContent = requests.length;
+
+    if (requests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:40px; color:#8b8fa3; font-size:12px;">No traffic requests sent yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = requests.map(r => {
+        const statusColors = {
+            'pending': { bg: '#fef3c7', color: '#92400e' },
+            'accepted': { bg: '#d1fae5', color: '#065f46' },
+            'denied': { bg: '#fee2e2', color: '#991b1b' }
+        };
+        const sc = statusColors[r.status] || { bg: '#f3f4f6', color: '#6b7280' };
+        const statusBadge = `<span class="tv3-badge" style="background:${sc.bg};color:${sc.color};">${r.status}</span>`;
+
+        const reasonText = r.status === 'denied' && r.deny_reason
+            ? `<span style="color:#dc2626;font-size:11px;">${escapeHtml(r.deny_reason)}</span>`
+            : '<span style="color:#c4c7d0;">—</span>';
+
+        return `<tr>
+            <td style="font-weight:500;">${escapeHtml(r.client_name)}</td>
+            <td style="font-family:monospace;font-size:11px;">${escapeHtml(r.case_number || '-')}</td>
+            <td>${escapeHtml(r.court || '-')}</td>
+            <td>${escapeHtml(r.charge || '-')}</td>
+            <td>${attyFmtDate(r.court_date)}</td>
+            <td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.note || '')}">${escapeHtml(r.note || '—')}</td>
+            <td class="c">${statusBadge}</td>
+            <td style="font-size:12px;">${attyFmtDate(r.created_at)}</td>
+            <td>${reasonText}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ============================================
+// Traffic Request Form
+// ============================================
+
+function openTrafficRequestForm() {
+    document.getElementById('trafficRequestForm').reset();
+    openModal('trafficRequestModal');
+}
+
+async function submitTrafficRequest(event) {
+    event.preventDefault();
+
+    const data = {
+        client_name: document.getElementById('reqClientName').value.trim(),
+        client_phone: document.getElementById('reqClientPhone').value.trim(),
+        client_email: document.getElementById('reqClientEmail').value.trim(),
+        court: document.getElementById('reqCourt').value.trim(),
+        court_date: document.getElementById('reqCourtDate').value || null,
+        charge: document.getElementById('reqCharge').value.trim(),
+        case_number: document.getElementById('reqCaseNumber').value.trim(),
+        citation_issued_date: document.getElementById('reqCitationIssuedDate').value || null,
+        note: document.getElementById('reqNote').value.trim(),
+        referral_source: document.getElementById('reqReferralSource').value.trim()
+    };
+
+    if (!data.client_name) {
+        alert('Client name is required');
+        return;
+    }
+
+    try {
+        const result = await apiCall('api/traffic_requests.php', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        if (result.success) {
+            closeModal('trafficRequestModal');
+            document.getElementById('trafficRequestForm').reset();
+            loadMyTrafficRequests();
+            alert('Traffic request sent successfully!');
+        } else {
+            alert(result.error || 'Error submitting request');
+        }
+    } catch (err) {
+        console.error('Error submitting traffic request:', err);
+        alert(err.message || 'Error submitting request');
     }
 }

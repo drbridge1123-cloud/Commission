@@ -146,6 +146,7 @@ $csrfToken = generateCSRFToken();
     <!-- Manager modals -->
     <?php include 'app/views/manager/modals/referral-form.php'; ?>
     <?php include 'app/views/manager/modals/demand-request-form.php'; ?>
+    <?php include 'app/views/manager/modals/traffic-request-form.php'; ?>
 
     <!-- Shared JS -->
     <script src="assets/js/shared/utils.js?v=<?= filemtime('assets/js/shared/utils.js') ?>"></script>

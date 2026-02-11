@@ -70,8 +70,8 @@ if ($method === 'GET') {
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-    } else if (hasPermission('can_request_traffic')) {
-        // Employee with traffic permission: see their own sent requests
+    } else if (isManager() || hasPermission('can_request_traffic')) {
+        // Manager or employee with traffic permission: see their own sent requests
         $stmt = $pdo->prepare("
             SELECT tr.*, u.display_name as assigned_to_name
             FROM traffic_requests tr
@@ -93,7 +93,7 @@ requireCSRFToken();
 
 // POST - Create new request (Admin or permitted employees)
 if ($method === 'POST') {
-    if (!hasPermission('can_request_traffic')) {
+    if (!isManager() && !hasPermission('can_request_traffic')) {
         jsonResponse(['error' => 'You do not have permission to create traffic requests'], 403);
     }
 
